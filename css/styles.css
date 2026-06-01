@@ -1,3 +1,60 @@
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        header {
+            height: 80px;
+            background: #010103;
+            color: white;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo {
+            position: absolute;
+            left: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo img {
+            height: 80px;
+            width: auto;
+        }
+
+        nav {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 8px 12px;
+            transition: color 0.2s ease;
+        }
+
+        nav a:hover {
+            color: #4da3ff;
+        }
+
+        main {
+            padding: 40px;
+        }
+
+        @media (max-width: 768px) {
+
+            .logo img {
+                height: 40px;
+            }
+        }
 :root {
     --bg-main: #f9f9f9;
     --bg-card: #fff;
@@ -10,6 +67,8 @@
     --note-bg: #fff9e6;
     --note-text: #5a4500;
 }
+
+
 
 html[data-dark-mode="true"] {
     --bg-main: #1a1a1a;
@@ -222,4 +281,52 @@ h2 .copy-icon {
     padding: 12px 24px;
     font-size: 1rem;
     cursor: pointer;
+}
+
+/* ===== Site Header ===== */
+
+.site-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    height: 80px;
+    padding: 0 24px;
+    margin-top: -20px;
+    margin-left: -20px;
+    margin-right: -20px;
+    background: #010103;
+    border-bottom: 1px solid #333;
+}
+
+.logo {
+    position: absolute;
+    left: 24px;
+    top: 49%;
+    transform: translateY(-50%);
+}
+
+.logo img {
+    height: 80px;
+    width: auto;
+    display: block;
+}
+
+.site-nav a:hover {
+    opacity: 0.7;
+}
+
+.site-nav a.active {
+    color: #4da3ff;
+}
+
+@media (max-width: 768px) {
+
+    .logo {
+        position: static;
+        transform: none;
+        margin-bottom: 12px;
+    }
+
 }
