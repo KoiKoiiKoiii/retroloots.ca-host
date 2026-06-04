@@ -1,0 +1,8 @@
+{
+  "name": "retroloots-site",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "stripe": "^12.0.0"
+  }
+}

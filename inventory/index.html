@@ -8,64 +8,94 @@
             content="Documentation and details all items in your inventory.">
         <link rel="icon" href="favicon.ico" type="image/x-icon">
         <link rel="stylesheet" href="../css/styles.css">
-        <script src="../js/dark-mode.js" defer></script>
+        <script src="../js/site.js" defer></script>
+        <script src="../js/cart.js" defer></script>
     </head>
-    <body>
+    <body data-page="inventory">
         <header class="site-header">
     <div class="logo">
-        <a href="/">
+        <a href="../">
             <img src="../logo.webp" alt="Retro Loots Logo">
         </a>
     </div>
 
     <nav class="site-nav">
-        <a href="/">Home</a>
-        <a href="/inventory/" class="active">Inventory</a>
-        <!--<a href="/products/">Products</a>
-        <a href="/about/">About</a> -->
+        <a href="../" data-i18n-key="navHome">Home</a>
+        <div class="nav-dropdown">
+            <a href="../shop.html" class="nav-dropdown-trigger" data-i18n-key="navShop">Shop</a>
+            <div class="nav-dropdown-menu">
+                <a href="../shop.html?category=board-games" data-i18n-key="catBoardGames">Board Games</a>
+                <a href="../shop.html?category=video-games" data-i18n-key="catVideoGames">Video Games</a>
+                <a href="../shop.html?category=cards" data-i18n-key="catCards">Cards</a>
+                <a href="../shop.html?category=movies" data-i18n-key="catMovies">Movies</a>
+                <a href="../shop.html?category=toys" data-i18n-key="catToys">Toys</a>
+            </div>
+        </div>
+        <a href="../shipping.html" data-i18n-key="navShipping">Shipping</a>
+        <a href="../conditions.html" data-i18n-key="navConditions">Conditions</a>
+        <a href="../contact.html" data-i18n-key="navContact">Contact</a>
+        <a href="." class="active admin-only" data-i18n-key="navInventory">Inventory</a>
     </nav>
         <div class="header-top">
-    <button id="darkModeToggle" class="dark-mode-btn"
-        aria-label="Toggle dark mode"
-        title="Toggle dark mode (D)">🌙</button>
+    <button id="langToggle" class="lang-btn" aria-label="Switch language">FR</button>
+    <button id="cartButton" class="cart-btn" aria-label="Open cart" title="Cart">🛒 <span id="cartBadge" class="cart-badge">0</span></button>
     </div>
 </header>
     
 
 
-        <div class="filter-panel">
-            <label for="dateFilter">Filter by date:</label>
-            <select id="dateFilter" aria-label="Filter toys by date folder">
-                <option value="all">All Dates</option>
-                <option value="5-27-26">5-27-26</option>
-                <option value="5-28-26">5-28-26</option>
-                <option value="5-29-26">5-29-26</option>
-                <option value="5-30-26">5-30-26</option>
-                <option value="6-1-26">6-1-26</option>
+        <div id="authGate" class="auth-overlay" aria-hidden="false">
+            <div class="auth-card">
+                <h1>Admin Login</h1>
+                <p>Inventory access is restricted to the administrative account.</p>
+                <form id="adminLoginForm">
+                    <label for="adminUsername">Username</label>
+                    <input id="adminUsername" name="adminUsername" type="text" autocomplete="username" required>
 
-            </select>
+                    <label for="adminPassword">Password</label>
+                    <input id="adminPassword" name="adminPassword" type="password" autocomplete="current-password" required>
 
-            <label for="searchInput">Search:</label>
-            <input type="text" id="searchInput" placeholder="Search by title..."
-                aria-label="Search toys by title">
-
-            <label for="sortSelect">Sort:</label>
-            <select id="sortSelect" aria-label="Sort toys">
-                <option value="date">Date Added</option>
-                <option value="name">Name (A-Z)</option>
-                <option value="price-asc">Price (Low-High)</option>
-                <option value="price-desc">Price (High-Low)</option>
-            </select>
-
-            <span id="itemCount" aria-live="polite" style="font-weight:700;">(0
-                items)</span>
+                    <button type="submit" class="button button-primary">Log in</button>
+                    <p id="authError" class="auth-error" aria-live="polite"></p>
+                </form>
+            </div>
         </div>
 
-        <div id="pricingSummary" class="pricing-summary" style="display:none;">
-            <div class="pricing-item">
-                <span class="pricing-label">Total Value:</span>
-                <span class="pricing-value" id="totalValue">$0.00</span>
+        <div id="inventoryContent" style="display:none;">
+            <div class="filter-panel">
+                <label for="dateFilter">Filter by date:</label>
+                <select id="dateFilter" aria-label="Filter toys by date folder">
+                    <option value="all">All Dates</option>
+                    <option value="5-27-26">5-27-26</option>
+                    <option value="5-28-26">5-28-26</option>
+                    <option value="5-29-26">5-29-26</option>
+                    <option value="5-30-26">5-30-26</option>
+                    <option value="6-1-26">6-1-26</option>
+                    <option value="6-4-26">6-4-26</option>
+
+                </select>
+
+                <label for="searchInput">Search:</label>
+                <input type="text" id="searchInput" placeholder="Search by title..."
+                    aria-label="Search toys by title">
+
+                <label for="sortSelect">Sort:</label>
+                <select id="sortSelect" aria-label="Sort toys">
+                    <option value="date">Date Added</option>
+                    <option value="name">Name (A-Z)</option>
+                    <option value="price-asc">Price (Low-High)</option>
+                    <option value="price-desc">Price (High-Low)</option>
+                </select>
+
+                <span id="itemCount" aria-live="polite" style="font-weight:700;">(0
+                    items)</span>
             </div>
+
+            <div id="pricingSummary" class="pricing-summary" style="display:none;">
+                <div class="pricing-item">
+                    <span class="pricing-label">Total Value:</span>
+                    <span class="pricing-value" id="totalValue">$0.00</span>
+                </div>
             <div class="pricing-item">
                 <span class="pricing-label">Average Price:</span>
                 <span class="pricing-value" id="averagePrice">$0.00</span>
@@ -74,9 +104,22 @@
 
         <div id="toyContainer"></div>
 
-        <div class="load-more-container" style="display:none;">
-            <button id="loadMoreBtn" type="button">Load More</button>
+            <div class="load-more-container" style="display:none;">
+                <button id="loadMoreBtn" type="button">Load More</button>
+            </div>
         </div>
+
+        <aside id="cartPanel" class="cart-panel" aria-hidden="true">
+            <div class="cart-header">
+                <h3 data-i18n-key="cartTitle">Your Cart</h3>
+                <button id="closeCart" aria-label="Close cart">✕</button>
+            </div>
+            <div id="cartItems" class="cart-items"></div>
+            <div class="cart-footer">
+                <div class="cart-total"><span data-i18n-key="cartTotalLabel">Total:</span> <strong id="cartTotal">0.00</strong></div>
+                <button id="checkoutBtn" class="checkout-btn" data-i18n-key="checkoutButton">Checkout</button>
+            </div>
+        </aside>
 
         <script>
         const toyContainer = document.getElementById('toyContainer');
@@ -84,7 +127,6 @@
         const searchInput = document.getElementById('searchInput');
         const sortSelect = document.getElementById('sortSelect');
         const itemCountEl = document.getElementById('itemCount');
-        const darkModeToggle = document.getElementById('darkModeToggle');
         const pricingSummary = document.getElementById('pricingSummary');
         const totalValueEl = document.getElementById('totalValue');
         const averagePriceEl = document.getElementById('averagePrice');
@@ -94,15 +136,71 @@
         const STORAGE_SCROLL = 'inventoryScrollY';
         const STORAGE_SEARCH = 'inventorySearch';
         const STORAGE_SORT = 'inventorySort';
+        const AUTH_STORAGE = 'adminInventoryAuthorized';
+        const ADMIN_USERNAME = 'admin';
+        const ADMIN_PASSWORD = 'retr0loot@@';
         const availableDates = Array.from(filterSelect.options)
             .map(option => option.value)
             .filter(value => value !== 'all');
 
+        const authGate = document.getElementById('authGate');
+        const adminLoginForm = document.getElementById('adminLoginForm');
+        const adminUsername = document.getElementById('adminUsername');
+        const adminPassword = document.getElementById('adminPassword');
+        const authError = document.getElementById('authError');
+        const inventoryContent = document.getElementById('inventoryContent');
+
         let scrollSaveTimeout = null;
         let allToys = [];
-let currentFilteredToys = [];
-let currentRenderCount = 0;
-const DEFAULT_BATCH_SIZE = 20;
+        let currentFilteredToys = [];
+        let currentRenderCount = 0;
+        const DEFAULT_BATCH_SIZE = 20;
+
+        function isAdminAuthenticated() {
+            return sessionStorage.getItem(AUTH_STORAGE) === 'true';
+        }
+
+        function setAdminAuthenticated(value) {
+            if (value) {
+                sessionStorage.setItem(AUTH_STORAGE, 'true');
+            } else {
+                sessionStorage.removeItem(AUTH_STORAGE);
+            }
+        }
+
+        function updateAuthUI() {
+            const authenticated = isAdminAuthenticated();
+            authGate.style.display = authenticated ? 'none' : 'flex';
+            inventoryContent.style.display = authenticated ? 'block' : 'none';
+        }
+
+        function handleLoginSuccess() {
+            setAdminAuthenticated(true);
+            authError.textContent = '';
+            updateAuthUI();
+            renderToys();
+        }
+
+        adminLoginForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const enteredUsername = adminUsername.value.trim();
+            const enteredPassword = adminPassword.value;
+
+            if (enteredUsername === ADMIN_USERNAME && enteredPassword === ADMIN_PASSWORD) {
+                handleLoginSuccess();
+            } else {
+                authError.textContent = 'Invalid username or password.';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateAuthUI();
+            if (isAdminAuthenticated()) {
+                restoreUIState();
+                await renderToys();
+                restoreScrollPosition();
+            }
+        });
 
 function getBatchSize() {
     return DEFAULT_BATCH_SIZE;
@@ -121,41 +219,6 @@ const loadMoreBtn = document.getElementById('loadMoreBtn');
             }, 150);
         }
 
-        function fallbackToggle() {
-            const isDark = document.documentElement.getAttribute('data-dark-mode') === 'true';
-            if (isDark) {
-                document.documentElement.removeAttribute('data-dark-mode');
-                localStorage.setItem('inventoryDarkMode', 'false');
-            } else {
-                document.documentElement.setAttribute('data-dark-mode', 'true');
-                localStorage.setItem('inventoryDarkMode', 'true');
-            }
-            // update any buttons immediately
-            const buttons = document.querySelectorAll('.dark-mode-btn, [data-dark-toggle]');
-            buttons.forEach(btn => btn.textContent = document.documentElement.getAttribute('data-dark-mode') === 'true' ? '☀️' : '🌙');
-        }
-
-        function attachDarkToggle() {
-            if (!darkModeToggle) return;
-            console.log('attachDarkToggle: InventoryDarkMode present?', !!window.InventoryDarkMode);
-
-            if (window.InventoryDarkMode && typeof window.InventoryDarkMode.isDark === 'function') {
-                try { window.InventoryDarkMode.applyDarkMode(window.InventoryDarkMode.isDark()); } catch (e) {}
-                darkModeToggle.textContent = window.InventoryDarkMode.isDark() ? '☀️' : '🌙';
-            } else {
-                darkModeToggle.textContent = localStorage.getItem('inventoryDarkMode') === 'true' ? '☀️' : '🌙';
-            }
-
-            darkModeToggle.addEventListener('click', (event) => {
-                if (window.InventoryDarkMode && typeof window.InventoryDarkMode.toggleDarkMode === 'function') {
-                    // External dark-mode.js already handles the toggle click.
-                    return;
-                }
-                fallbackToggle();
-            });
-        }
-
-        attachDarkToggle();
         window.addEventListener('scroll', onScroll, { passive: true });
 
         async function fetchToyData(date) {
@@ -488,13 +551,6 @@ window.addEventListener('scroll', () => {
             renderToys();
             requestAnimationFrame(restoreScrollPosition);
         });
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            restoreUIState();
-            await renderToys();
-            restoreScrollPosition();
-        });
-        
 
         function renderVisibleToys() {
             loadMoreBtn.style.display = 'none';

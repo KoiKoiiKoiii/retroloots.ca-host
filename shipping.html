@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping | Retro Loots</title>
+    <meta name="description" content="Learn about RetroLoots shipping services and product categories.">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="js/site.js" defer></script>
+</head>
+<body data-page="shipping">
+<header class="site-header">
+    <div class="logo">
+        <a href="/">
+            <img src="logo.webp" alt="Retro Loots Logo">
+        </a>
+    </div>
+
+    <nav class="site-nav">
+        <a href="/" data-i18n-key="navHome">Home</a>
+        <div class="nav-dropdown">
+            <a href="/shop.html" class="nav-dropdown-trigger" data-i18n-key="navShop">Shop</a>
+            <div class="nav-dropdown-menu">
+                <a href="/shop.html?category=board-games" data-i18n-key="catBoardGames">Board Games</a>
+                <a href="/shop.html?category=video-games" data-i18n-key="catVideoGames">Video Games</a>
+                <a href="/shop.html?category=cards" data-i18n-key="catCards">Cards</a>
+                <a href="/shop.html?category=movies" data-i18n-key="catMovies">Movies</a>
+                <a href="/shop.html?category=toys" data-i18n-key="catToys">Toys</a>
+            </div>
+        </div>
+        <a href="/shipping.html" class="active" data-i18n-key="navShipping">Shipping</a>
+        <a href="/conditions.html" data-i18n-key="navConditions">Conditions</a>
+        <a href="/contact.html" data-i18n-key="navContact">Contact</a>
+        <a href="/inventory/" class="admin-only" data-i18n-key="navInventory">Inventory</a>
+    </nav>
+    <div class="header-top">
+        <button id="langToggle" class="lang-btn" aria-label="Switch language">FR</button>
+        <button id="cartButton" class="cart-btn" aria-label="Open cart" title="Cart">🛒 <span id="cartBadge" class="cart-badge">0</span></button>
+    </div>
+</header>
+
+<main>
+    <section class="hero-copy">
+        <div>
+            <h1 data-i18n-key="shippingPageTitle">What We Ship</h1>
+            <p data-i18n-key="shippingPageIntro">Discover the wide range of collectibles and media we carefully source and ship from Quebec.</p>
+        </div>
+    </section>
+
+    <section class="content-section">
+        <div class="category-grid">
+            <article class="category-card">
+                <h2 data-i18n-key="catBoardGames">Board Games / Jeux de société</h2>
+                <p data-i18n-key="shippingBoardGamesCopy">Curated board games and tabletop experiences for collectors and enthusiasts.</p>
+            </article>
+
+            <article class="category-card">
+                <h2 data-i18n-key="catVideoGames">Video Games / Jeux Vidéo/Console</h2>
+                <p data-i18n-key="shippingVideoGamesCopy">Classic and modern gaming consoles and titles: Xbox, Xbox 360, Xbox One, PS1, PS2, PS3, PS4, and PC games.</p>
+            </article>
+
+            <article class="category-card">
+                <h2 data-i18n-key="catCards">Cards / Cartes</h2>
+                <p data-i18n-key="shippingCardsCopy">Trading card collections including Pokémon, Hockey, Magic: The Gathering, and Yu-Gi-Oh!</p>
+            </article>
+
+            <article class="category-card">
+                <h2 data-i18n-key="catMovies">Movies / Films</h2>
+                <p data-i18n-key="shippingMoviesCopy">Physical media and cinema collectibles for film enthusiasts.</p>
+            </article>
+
+            <article class="category-card">
+                <h2 data-i18n-key="catToys">Toys / Jouets</h2>
+                <p data-i18n-key="shippingToysCopy">Collectible figures, Funko Pops, and designer toys in premium condition.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="content-section">
+        <h2 data-i18n-key="shippingStandardsTitle">Our Shipping Standards</h2>
+        <ul class="standards-list">
+            <li data-i18n-key="shippingStandard1">Fast Canada and USA shipping with tracking included</li>
+            <li data-i18n-key="shippingStandard2">Reinforced, collector-safe packaging</li>
+            <li data-i18n-key="shippingStandard3">Every item inspected before shipping</li>
+            <li data-i18n-key="shippingStandard4">Premium condition guarantee on all items</li>
+        </ul>
+    </section>
+</main>
+
+</body>
+</html>
