@@ -209,7 +209,7 @@ async function toggleSold(id, current) {
   headers: {
     "Content-Type": "application/json"
   },
-  body: JSON.stringify({ id, sold: !current })
+  body: JSON.stringify({ id })
 });
 
   await loadData();
