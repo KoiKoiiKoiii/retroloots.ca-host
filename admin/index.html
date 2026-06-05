@@ -203,20 +203,21 @@ function renderInventory() {
 
 
 window.toggleSold = async function(id, current) {
-  console.log("FUNCTION ENTERED", id);
-
   const res = await fetch("/.netlify/functions/inventory-toggle-sold", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id })
   });
 
-  console.log("FETCH SENT");
+  const data = await res.json();
 
-  const text = await res.text();
-  console.log("RAW RESPONSE:", text);
+  if (data.success) {
+    const item = inventory.find(i => i.id === id);
+    if (item) item.sold = !item.sold;
+
+    renderInventory();
+    renderStats();
+  }
 };
 
 window.toggleSold = toggleSold;
