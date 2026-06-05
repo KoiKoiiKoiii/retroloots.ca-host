@@ -17,9 +17,7 @@ async function loadData() {
   const inventory = await invRes.json();
   const orders = await ordRes.json();
 
-  renderStats?.(inventory, orders); // safe call if you don't have it yet
-
-  return [inventory, orders];
+  return { inventory, orders };
 }
 
   const STORAGE_EXPANDED = 'shop-expanded-products';
