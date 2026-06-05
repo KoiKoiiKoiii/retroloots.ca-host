@@ -119,7 +119,7 @@ function resolveImagePath(src) {
 
   src = src.replace(/^images\//, '');
 
-  return `https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/${src}`;
+  return `https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/images/${src}`;
 }
 
     return items.map((item, idx) => {
