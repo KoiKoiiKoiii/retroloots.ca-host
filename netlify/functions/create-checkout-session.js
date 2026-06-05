@@ -1,49 +1,48 @@
-exports.handler = async function(event, context) {
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { createClient } = require('@supabase/supabase-js');
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return { statusCode: 500, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }) };
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const { items } = JSON.parse(event.body);
 
-  let body = {};
-  try {
-    body = JSON.parse(event.body || '{}');
-  } catch (e) {
-    return { statusCode: 400, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ error: 'Invalid JSON' }) };
+  const ids = items.map(i => i.id);
+
+  const { data, error } = await supabase
+    .from('inventory')
+    .select('*')
+    .in('id', ids)
+    .eq('sold', false);
+
+  if (error) {
+    return { statusCode: 500, body: error.message };
   }
 
-  const items = Array.isArray(body.items) ? body.items : [];
-  if (!items.length) return { statusCode: 400, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ error: 'No items provided' }) };
+  const line_items = data.map(item => ({
+    price_data: {
+      currency: 'cad',
+      product_data: { name: item.title },
+      unit_amount: Math.round(Number(item.price) * 100)
+    },
+    quantity: 1
+  }));
 
-  try {
-    const currency = 'cad';
-    const line_items = items.map(i => ({
-      price_data: {
-        currency,
-        product_data: { name: i.name },
-        unit_amount: Math.round(Number(i.price) * 100),
-      },
-      quantity: Number(i.quantity || 1),
-    }));
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items,
+    success_url: `${process.env.URL}/success.html`,
+    cancel_url: `${process.env.URL}/`
+  });
 
-    const origin = process.env.URL || process.env.SITE_URL || 'http://localhost:8888';
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items,
-      mode: 'payment',
-      success_url: `${origin}/success.html`,
-      cancel_url: `${origin}/`,
-    });
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: session.url }),
-    };
-  } catch (err) {
-    console.error('Stripe error:', err && err.message ? err.message : err);
-    return { statusCode: 500, headers:{'Content-Type':'application/json'}, body: JSON.stringify({ error: 'Server error', details: err && err.message ? err.message : String(err) }) };
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ url: session.url })
+  };
 };

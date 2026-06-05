@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+
+  <link rel="stylesheet" href="../css/styles.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f0f0f;
+      color: white;
+      margin: 0;
+    }
+
+    header {
+      padding: 20px;
+      background: #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .card {
+      background: #1c1c1c;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #333;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .sold {
+      color: #00ff88;
+    }
+
+    .unsold {
+      color: #ff4d4d;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h2>Retro Loots Admin</h2>
+  <button onclick="logout()">Logout</button>
+</header>
+
+<div class="grid">
+
+  <!-- STATS -->
+  <div class="card">
+    <h3>Stats</h3>
+    <p>Revenue: <strong id="revenue">$0</strong></p>
+    <p>Sold Items: <strong id="soldCount">0</strong></p>
+    <p>Active Items: <strong id="activeCount">0</strong></p>
+  </div>
+
+  <!-- ORDERS -->
+  <div class="card">
+    <h3>Orders</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTable"></tbody>
+    </table>
+  </div>
+
+  <!-- INVENTORY -->
+  <div class="card" style="grid-column: 1 / -1;">
+    <h3>Inventory</h3>
+
+    <input id="search" placeholder="Search items..." style="margin-bottom:10px; width:100%; padding:8px;">
+
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Price</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="inventoryTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://ayigmbzistxzhjbncrru.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let inventory = [];
+let orders = [];
+
+async function loadData() {
+  const [{ data: inv }, { data: ord }] = await Promise.all([
+    sb.from("inventory").select("*"),
+    sb.from("orders").select("*")
+  ]);
+
+  inventory = inv || [];
+  orders = ord || [];
+
+  renderStats();
+  renderInventory();
+  renderOrders();
+}
+
+function renderStats() {
+  const sold = inventory.filter(i => i.sold).length;
+  const active = inventory.filter(i => !i.sold).length;
+  const revenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+  document.getElementById("soldCount").innerText = sold;
+  document.getElementById("activeCount").innerText = active;
+  document.getElementById("revenue").innerText = `$${revenue.toFixed(2)}`;
+}
+
+function renderOrders() {
+  const el = document.getElementById("ordersTable");
+  el.innerHTML = "";
+
+  orders.forEach(o => {
+    el.innerHTML += `
+      <tr>
+        <td>${o.id.slice(0,8)}</td>
+        <td>$${o.total}</td>
+      </tr>
+    `;
+  });
+}
+
+function renderInventory() {
+  const el = document.getElementById("inventoryTable");
+  const search = document.getElementById("search").value.toLowerCase();
+
+  el.innerHTML = "";
+
+  inventory
+    .filter(i => i.title.toLowerCase().includes(search))
+    .forEach(item => {
+      el.innerHTML += `
+        <tr>
+          <td>${item.title}</td>
+          <td>$${item.price}</td>
+          <td class="${item.sold ? 'sold' : 'unsold'}">
+            ${item.sold ? 'SOLD' : 'ACTIVE'}
+          </td>
+          <td>
+            <button onclick="toggleSold('${item.id}', ${item.sold})">
+              Toggle
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+}
+
+async function toggleSold(id, current) {
+  await sb
+    .from("inventory")
+    .update({ sold: !current })
+    .eq("id", id);
+
+  await loadData();
+}
+
+document.getElementById("search").addEventListener("input", renderInventory);
+
+function logout() {
+  sessionStorage.clear();
+  location.reload();
+}
+
+loadData();
+</script>
+
+</body>
+</html>
