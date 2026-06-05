@@ -132,7 +132,9 @@
       object-fit: contain;
       border-radius: 8px;
     }
-
+  #inventoryTable button {
+    width: 100%;
+  }
     .admin-image-viewer button {
       position: absolute;
       top: 16px;
@@ -146,15 +148,101 @@
       font-size: 22px;
     }
 
-    @media (max-width: 900px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+@media (max-width: 900px) {
+  .grid {
+  grid-template-columns: 1fr;
+}
 
-      .admin-toolbar {
-        grid-template-columns: 1fr;
-      }
-    }
+table:has(#inventoryTable) thead {
+  display: none;
+}
+
+  .admin-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  #inventoryTable tr {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #171717;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  #inventoryTable td {
+    border: 0;
+    padding: 0;
+  }
+
+  #inventoryTable td:first-child {
+    margin-bottom: 6px;
+  }
+
+
+  #inventoryTable .admin-thumb-list {
+    justify-content: flex-start;
+    margin-bottom: 8px;
+  }
+
+  #inventoryTable .admin-thumb {
+    width: 60px;
+    height: 60px;
+  }
+
+  #inventoryTable td:nth-child(2)::before {
+    content: "Title";
+    font-weight: bold;
+    color: #aaa;
+  }
+
+  #inventoryTable td:nth-child(3)::before {
+    content: "Date";
+    font-weight: bold;
+    color: #aaa;
+  }
+
+  #inventoryTable td:nth-child(4)::before {
+    content: "Price";
+    font-weight: bold;
+    color: #aaa;
+  }
+
+  #inventoryTable td:nth-child(5)::before {
+    content: "Status";
+    font-weight: bold;
+    color: #aaa;
+  }
+
+  #inventoryTable td:nth-child(6)::before {
+    content: "Actions";
+    font-weight: bold;
+    color: #aaa;
+  }
+
+    #inventoryTable td:last-child {
+    margin-top: 8px;
+  }
+  #inventoryTable td::before {
+    margin-right: 12px;
+  }
+    .admin-thumb {
+    width: 72px;
+    height: 72px;
+  }
+
+  #inventoryTable td:nth-child(2),
+#inventoryTable td:nth-child(3),
+#inventoryTable td:nth-child(4),
+#inventoryTable td:nth-child(5),
+#inventoryTable td:nth-child(6) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+}
   </style>
 </head>
 <body>
@@ -247,7 +335,11 @@
           </tr>
         </thead>
         <tbody id="inventoryTable"></tbody>
+        
       </table>
+      <div style="padding:15px;text-align:center;">
+  <button id="loadMoreBtn">Load More</button>
+</div>
     </div>
   </div>
 
@@ -259,12 +351,15 @@
   <script type="module">
     let inventory = [];
     let orders = [];
-
+const PAGE_SIZE = 10;
+let currentPage = 1;
+const imageCache = new Map();
     const dateFilter = document.getElementById("dateFilter");
     const statusFilter = document.getElementById("statusFilter");
     const searchInput = document.getElementById("search");
     const sortSelect = document.getElementById("sortSelect");
     const itemCount = document.getElementById("itemCount");
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
     const imageViewer = document.getElementById("imageViewer");
     const imageViewerImg = document.getElementById("imageViewerImg");
     const imageViewerClose = document.getElementById("imageViewerClose");
@@ -274,7 +369,6 @@
     }
 
     function authHeaders() {
-      console.log("AUTH HEADER:", event.headers.authorization);
       return {
         "Authorization": `Bearer ${getToken()}`,
         "Content-Type": "application/json"
@@ -308,9 +402,12 @@ async function loadData() {
     orders = Array.isArray(ordersData) ? ordersData : [];
 
     populateDateFilter();
-    renderStats();
-    renderInventory();
-    renderOrders();
+
+currentPage = 1;
+
+renderStats();
+renderInventory();
+renderOrders();
 
   } catch (err) {
     console.error(err);
@@ -370,7 +467,24 @@ async function loadData() {
 
       dateFilter.value = dates.includes(current) ? current : "all";
     }
+function preloadImage(src) {
+  if (!src || imageCache.has(src)) return;
 
+  const img = new Image();
+  img.src = src;
+
+  img.onload = () => imageCache.set(src, true);
+  img.onerror = () => imageCache.set(src, false);
+}
+
+function preloadFilteredImages(items) {
+  items.forEach(item => {
+    (item.images || []).forEach(image => {
+      const src = getImageSrc(image);
+      preloadImage(src);
+    });
+  });
+}
     function getImageSrc(image) {
       const src = image && image.src ? String(image.src) : "";
       if (!src) return "";
@@ -424,9 +538,15 @@ async function loadData() {
       const el = document.getElementById("inventoryTable");
       el.replaceChildren();
       const filtered = getFilteredInventory();
-      itemCount.textContent = `(${filtered.length} ${filtered.length === 1 ? "item" : "items"})`;
 
-      filtered
+const end = currentPage * PAGE_SIZE;
+const visibleItems = filtered.slice(0, end);
+
+preloadFilteredImages(visibleItems);
+      itemCount.textContent = `(${filtered.length} ${filtered.length === 1 ? "item" : "items"})`;
+loadMoreBtn.style.display =
+    end < filtered.length ? "inline-block" : "none";
+      visibleItems
         .forEach((item) => {
           const row = document.createElement("tr");
           const images = document.createElement("td");
@@ -472,9 +592,14 @@ async function loadData() {
           actions.appendChild(toggle);
 
           row.append(images, title, date, price, status, actions);
+          row.dataset.title = item.title || "";
+row.dataset.price = `$${Number(item.price || 0).toFixed(2)}`;
+row.dataset.status = item.sold ? "SOLD" : "ACTIVE";
           el.appendChild(row);
+          
         });
     }
+    
 
     window.toggleSold = async function(id) {
       const data = await fetchAdminJson("/.netlify/functions/inventory-toggle-sold", {
@@ -519,11 +644,19 @@ async function loadData() {
       sessionStorage.clear();
       location.reload();
     };
+loadMoreBtn.addEventListener("click", () => {
+  currentPage++;
+  renderInventory();
+});
+function resetAndRender() {
+  currentPage = 1;
+  renderInventory();
+}
 
-    dateFilter.addEventListener("change", renderInventory);
-    statusFilter.addEventListener("change", renderInventory);
-    searchInput.addEventListener("input", renderInventory);
-    sortSelect.addEventListener("change", renderInventory);
+dateFilter.addEventListener("change", resetAndRender);
+statusFilter.addEventListener("change", resetAndRender);
+searchInput.addEventListener("input", resetAndRender);
+sortSelect.addEventListener("change", resetAndRender);
     imageViewerClose.addEventListener("click", hideImage);
     imageViewer.addEventListener("click", (event) => {
       if (event.target === imageViewer) hideImage();
