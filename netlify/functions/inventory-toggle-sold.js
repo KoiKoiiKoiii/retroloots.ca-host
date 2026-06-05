@@ -1,6 +1,8 @@
 const supabase = require("./_supabase");
 
 exports.handler = async (event) => {
+  console.log("EVENT BODY RAW:", event.body);
+  console.log("EVENT HEADERS:", event.headers);
   try {
     let id;
 
