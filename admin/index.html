@@ -496,7 +496,7 @@ function preloadFilteredImages(items) {
       const src = image && image.src ? String(image.src) : "";
       if (!src) return "";
       if (src.startsWith("http") || src.startsWith("/")) return src;
-      return `../inventory/${src}`;
+      return `https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/${src}`;
     }
 
     function getFilteredInventory() {
