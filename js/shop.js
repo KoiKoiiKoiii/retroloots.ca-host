@@ -14,13 +14,14 @@ async function loadData() {
     fetch("/.netlify/functions/orders-get")
   ]);
 
-  inventory = await invRes.json();
-  orders = await ordRes.json();
+  const inventory = await invRes.json();
+  const orders = await ordRes.json();
 
-  renderStats();
-  renderInventory();
-  renderOrders();
+  renderStats?.(inventory, orders); // safe call if you don't have it yet
+
+  return [inventory, orders];
 }
+
   const STORAGE_EXPANDED = 'shop-expanded-products';
   const DEFAULT_BATCH_SIZE = 12;
 
