@@ -201,7 +201,6 @@ function renderInventory() {
     });
 }
 
-window.toggleSold = toggleSold;
 
 window.toggleSold = async function(id, current) {
   console.log("FUNCTION ENTERED", id);
@@ -219,6 +218,10 @@ window.toggleSold = async function(id, current) {
   const text = await res.text();
   console.log("RAW RESPONSE:", text);
 };
+
+window.toggleSold = toggleSold;
+
+
 async function login() {
   const username = document.getElementById("username").value;
   const password = document.getElementById("password").value;
