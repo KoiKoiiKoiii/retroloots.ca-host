@@ -1,25 +1,42 @@
-const { id } = JSON.parse(event.body);
+const supabase = require("./_supabase");
 
-const { data, error } = await supabase
-  .from("inventory")
-  .select("sold")
-  .eq("id", id)
-  .single();
+exports.handler = async (event) => {
+  try {
+    const { id } = JSON.parse(event.body);
 
-if (error) {
-  return { statusCode: 500, body: error.message };
-}
+    const { data, error } = await supabase
+      .from("inventory")
+      .select("sold")
+      .eq("id", id)
+      .single();
 
-const { error: updateError } = await supabase
-  .from("inventory")
-  .update({ sold: !data.sold })
-  .eq("id", id);
+    if (error) {
+      return {
+        statusCode: 500,
+        body: error.message,
+      };
+    }
 
-if (updateError) {
-  return { statusCode: 500, body: updateError.message };
-}
+    const { error: updateError } = await supabase
+      .from("inventory")
+      .update({ sold: !data.sold })
+      .eq("id", id);
 
-return {
-  statusCode: 200,
-  body: JSON.stringify({ success: true })
+    if (updateError) {
+      return {
+        statusCode: 500,
+        body: updateError.message,
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true }),
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: err.message,
+    };
+  }
 };
