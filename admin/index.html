@@ -280,43 +280,49 @@
       };
     }
 
-    async function fetchAdminJson(url, options = {}) {
-      const res = await fetch(url, {
-        ...options,
-        headers: {
-          ...authHeaders(),
-          ...(options.headers || {})
-        }
-      });
-
-      if (res.status === 401) {
-        sessionStorage.clear();
-        document.getElementById("loginBox").style.display = "flex";
-        throw new Error("Unauthorized");
-      }
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-
-      return res.json();
+async function fetchAdminJson(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {})
     }
+  });
 
-    async function loadData() {
-      const [inventoryData, ordersData] = await Promise.all([
-        fetchAdminJson("/.netlify/functions/inventory-get"),
-        fetchAdminJson("/.netlify/functions/orders-get")
-      ]);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Request failed ${res.status}: ${text}`);
+  }
 
-      inventory = Array.isArray(inventoryData) ? inventoryData : [];
-      orders = Array.isArray(ordersData) ? ordersData : [];
+  return res.json();
+}
 
-      populateDateFilter();
-      renderStats();
-      renderInventory();
-      renderOrders();
-    }
+async function loadData() {
+  try {
+    const [inventoryData, ordersData] = await Promise.all([
+      fetchAdminJson("/.netlify/functions/inventory-get"),
+      fetchAdminJson("/.netlify/functions/orders-get")
+    ]);
 
+    inventory = Array.isArray(inventoryData) ? inventoryData : [];
+    orders = Array.isArray(ordersData) ? ordersData : [];
+
+    populateDateFilter();
+    renderStats();
+    renderInventory();
+    renderOrders();
+
+  } catch (err) {
+    console.error(err);
+
+    const el = document.getElementById("inventoryTable");
+    el.replaceChildren();
+
+    const error = document.createElement("div");
+    error.textContent = err.message;
+    error.style.color = "red";
+    el.appendChild(error);
+  }
+}
     function renderStats() {
       const sold = inventory.filter((item) => item.sold).length;
       const active = inventory.filter((item) => !item.sold).length;
