@@ -1,8 +1,14 @@
-const supabase = require("./_supabase");
+const { getServiceClient } = require("./_supabase");
+const { requireAdmin } = require("./_auth");
 
 exports.handler = async (event) => {
-  console.log("EVENT BODY RAW:", event.body);
-  console.log("EVENT HEADERS:", event.headers);
+  const authError = requireAdmin(event);
+  if (authError) return authError;
+
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method not allowed" };
+  }
+
   try {
     let id;
 
@@ -23,6 +29,7 @@ exports.handler = async (event) => {
       };
     }
 
+    const supabase = getServiceClient();
     const { data, error } = await supabase
       .from("inventory")
       .select("sold")

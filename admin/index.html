@@ -3,11 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin Dashboard</title>
-
   <link rel="stylesheet" href="../css/styles.css">
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -61,211 +57,230 @@
     }
   </style>
 </head>
-
 <body>
-
   <div id="loginBox" style="
-  position:fixed;
-  inset:0;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  z-index:9999;
-">
-  <h2>Admin Login</h2>
-
-  <input id="username" placeholder="Username" style="padding:10px;margin:5px;">
-  <input id="password" type="password" placeholder="Password" style="padding:10px;margin:5px;">
-
-  <button onclick="login()" style="padding:10px 20px;">Login</button>
-
-  <p id="loginError" style="color:red;"></p>
-</div>
-
-<header>
-  <h2>Retro Loots Admin</h2>
-  <button onclick="logout()">Logout</button>
-</header>
-
-<div class="grid">
-
-  <!-- STATS -->
-  <div class="card">
-    <h3>Stats</h3>
-    <p>Revenue: <strong id="revenue">$0</strong></p>
-    <p>Sold Items: <strong id="soldCount">0</strong></p>
-    <p>Active Items: <strong id="activeCount">0</strong></p>
+    position:fixed;
+    inset:0;
+    background:#0f0f0f;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:9999;
+  ">
+    <h2>Admin Login</h2>
+    <input id="username" placeholder="Username" style="padding:10px;margin:5px;">
+    <input id="password" type="password" placeholder="Password" style="padding:10px;margin:5px;">
+    <button onclick="login()" style="padding:10px 20px;">Login</button>
+    <p id="loginError" style="color:red;"></p>
   </div>
 
-  <!-- ORDERS -->
-  <div class="card">
-    <h3>Orders</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody id="ordersTable"></tbody>
-    </table>
+  <header>
+    <h2>Retro Loots Admin</h2>
+    <button onclick="logout()">Logout</button>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Stats</h3>
+      <p>Revenue: <strong id="revenue">$0</strong></p>
+      <p>Sold Items: <strong id="soldCount">0</strong></p>
+      <p>Active Items: <strong id="activeCount">0</strong></p>
+    </div>
+
+    <div class="card">
+      <h3>Orders</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <h3>Inventory</h3>
+      <input id="search" placeholder="Search items..." style="margin-bottom:10px; width:100%; padding:8px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inventoryTable"></tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- INVENTORY -->
-  <div class="card" style="grid-column: 1 / -1;">
-    <h3>Inventory</h3>
+  <script type="module">
+    let inventory = [];
+    let orders = [];
 
-    <input id="search" placeholder="Search items..." style="margin-bottom:10px; width:100%; padding:8px;">
+    function getToken() {
+      return sessionStorage.getItem("adminToken") || "";
+    }
 
-    <table>
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Price</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="inventoryTable"></tbody>
-    </table>
-  </div>
+    function authHeaders() {
+      return {
+        "Authorization": `Bearer ${getToken()}`,
+        "Content-Type": "application/json"
+      };
+    }
 
-</div>
+    async function fetchAdminJson(url, options = {}) {
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          ...authHeaders(),
+          ...(options.headers || {})
+        }
+      });
 
-<script type="module">
-let inventory = [];
-let orders = [];
-async function loadData() {
-  const [invRes, ordRes] = await Promise.all([
-    fetch("/.netlify/functions/inventory-get"),
-    fetch("/.netlify/functions/orders-get")
-  ]);
+      if (res.status === 401) {
+        sessionStorage.clear();
+        document.getElementById("loginBox").style.display = "flex";
+        throw new Error("Unauthorized");
+      }
 
-  inventory = await invRes.json();
-  orders = await ordRes.json();
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
 
-  renderStats();
-  renderInventory();
-  renderOrders();
-}
+      return res.json();
+    }
 
-function renderStats() {
-  const sold = inventory.filter(i => i.sold).length;
-  const active = inventory.filter(i => !i.sold).length;
-  const revenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    async function loadData() {
+      const [inventoryData, ordersData] = await Promise.all([
+        fetchAdminJson("/.netlify/functions/inventory-get"),
+        fetchAdminJson("/.netlify/functions/orders-get")
+      ]);
 
-  document.getElementById("soldCount").innerText = sold;
-  document.getElementById("activeCount").innerText = active;
-  document.getElementById("revenue").innerText = `$${revenue.toFixed(2)}`;
-}
+      inventory = Array.isArray(inventoryData) ? inventoryData : [];
+      orders = Array.isArray(ordersData) ? ordersData : [];
 
-function renderOrders() {
-  const el = document.getElementById("ordersTable");
-  el.innerHTML = "";
+      renderStats();
+      renderInventory();
+      renderOrders();
+    }
 
-  orders.forEach(o => {
-    el.innerHTML += `
-      <tr>
-        <td>${o.id.slice(0,8)}</td>
-        <td>$${o.total}</td>
-      </tr>
-    `;
-  });
-}
+    function renderStats() {
+      const sold = inventory.filter((item) => item.sold).length;
+      const active = inventory.filter((item) => !item.sold).length;
+      const revenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
-function renderInventory() {
-  const el = document.getElementById("inventoryTable");
-  const search = document.getElementById("search").value.toLowerCase();
+      document.getElementById("soldCount").textContent = sold;
+      document.getElementById("activeCount").textContent = active;
+      document.getElementById("revenue").textContent = `$${revenue.toFixed(2)}`;
+    }
 
-  el.innerHTML = "";
+    function renderOrders() {
+      const el = document.getElementById("ordersTable");
+      el.replaceChildren();
 
-  inventory
-    .filter(i => i.title.toLowerCase().includes(search))
-    .forEach(item => {
-      el.innerHTML += `
-        <tr>
-          <td>${item.title}</td>
-          <td>$${item.price}</td>
-          <td class="${item.sold ? 'sold' : 'unsold'}">
-            ${item.sold ? 'SOLD' : 'ACTIVE'}
-          </td>
-          <td>
-            <button onclick="toggleSold('${item.id}', ${item.sold})">
-              Toggle
-            </button>
-          </td>
-        </tr>
-      `;
-    });
-}
+      orders.forEach((order) => {
+        const row = document.createElement("tr");
+        const id = document.createElement("td");
+        const total = document.createElement("td");
 
+        id.textContent = String(order.id || order.stripe_session || "").slice(0, 8);
+        total.textContent = `$${Number(order.total || 0).toFixed(2)}`;
 
-window.toggleSold = async function(id, current) {
-  const res = await fetch("/.netlify/functions/inventory-toggle-sold", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id })
-  });
+        row.append(id, total);
+        el.appendChild(row);
+      });
+    }
 
-  const data = await res.json();
+    function renderInventory() {
+      const el = document.getElementById("inventoryTable");
+      const search = document.getElementById("search").value.toLowerCase();
+      el.replaceChildren();
 
-  if (data.success) {
-    const item = inventory.find(i => i.id === id);
-    if (item) item.sold = !item.sold;
+      inventory
+        .filter((item) => String(item.title || "").toLowerCase().includes(search))
+        .forEach((item) => {
+          const row = document.createElement("tr");
+          const title = document.createElement("td");
+          const price = document.createElement("td");
+          const status = document.createElement("td");
+          const actions = document.createElement("td");
+          const toggle = document.createElement("button");
 
-    renderInventory();
-    renderStats();
-  }
-};
+          title.textContent = item.title || "";
+          price.textContent = `$${Number(item.price || 0).toFixed(2)}`;
+          status.className = item.sold ? "sold" : "unsold";
+          status.textContent = item.sold ? "SOLD" : "ACTIVE";
 
-window.toggleSold = toggleSold;
+          toggle.type = "button";
+          toggle.textContent = "Toggle";
+          toggle.addEventListener("click", () => toggleSold(item.id));
+          actions.appendChild(toggle);
 
+          row.append(title, price, status, actions);
+          el.appendChild(row);
+        });
+    }
 
-async function login() {
-  const username = document.getElementById("username").value;
-  const password = document.getElementById("password").value;
+    window.toggleSold = async function(id) {
+      const data = await fetchAdminJson("/.netlify/functions/inventory-toggle-sold", {
+        method: "POST",
+        body: JSON.stringify({ id })
+      });
 
-  const res = await fetch("/.netlify/functions/login", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-    headers: {
-  "Content-Type": "application/json"
-}
-  });
+      if (data.success) {
+        const item = inventory.find((candidate) => candidate.id === id);
+        if (item) item.sold = !item.sold;
 
-  const data = await res.json();
+        renderInventory();
+        renderStats();
+      }
+    };
 
-  if (data.success) {
-    sessionStorage.setItem("adminToken", data.token);
-    document.getElementById("loginBox").style.display = "none";
-    loadData();
-  } else {
-    document.getElementById("loginError").innerText = "Invalid credentials";
-  }
-}
+    window.login = async function() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
 
-window.login = login;
+      const res = await fetch("/.netlify/functions/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+        headers: { "Content-Type": "application/json" }
+      });
 
-function logout() {
-  sessionStorage.clear();
-  location.reload();
-}
+      const data = await res.json();
 
-window.logout = logout;
+      if (data.success) {
+        sessionStorage.setItem("adminToken", data.token);
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("loginError").textContent = "";
+        loadData().catch((error) => {
+          document.getElementById("loginError").textContent = error.message;
+        });
+      } else {
+        document.getElementById("loginError").textContent = "Invalid credentials";
+      }
+    };
 
-function isLoggedIn() {
-  return !!sessionStorage.getItem("adminToken");
-}
+    window.logout = function() {
+      sessionStorage.clear();
+      location.reload();
+    };
 
-if (!isLoggedIn()) {
-  document.getElementById("loginBox").style.display = "flex";
-} else {
-  document.getElementById("loginBox").style.display = "none";
-  loadData();
-}
-</script>
+    document.getElementById("search").addEventListener("input", renderInventory);
 
+    if (!getToken()) {
+      document.getElementById("loginBox").style.display = "flex";
+    } else {
+      document.getElementById("loginBox").style.display = "none";
+      loadData().catch(() => {
+        sessionStorage.clear();
+        document.getElementById("loginBox").style.display = "flex";
+      });
+    }
+  </script>
 </body>
 </html>

@@ -1,6 +1,11 @@
-const supabase = require("./_supabase");
+const { getServiceClient } = require("./_supabase");
+const { requireAdmin } = require("./_auth");
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  const authError = requireAdmin(event);
+  if (authError) return authError;
+
+  const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("orders")
     .select("*")
@@ -12,6 +17,6 @@ exports.handler = async () => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   };
 };

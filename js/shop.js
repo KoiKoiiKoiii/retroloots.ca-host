@@ -1,5 +1,4 @@
 const ShopPage = (function() {
-
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
@@ -8,18 +7,6 @@ const ShopPage = (function() {
   const imageViewerImg = document.getElementById('imageViewerImg');
   const imageViewerClose = document.getElementById('imageViewerClose');
 
-async function loadData() {
-  const [invRes, ordRes] = await Promise.all([
-    fetch("/.netlify/functions/inventory-get"),
-    fetch("/.netlify/functions/orders-get")
-  ]);
-
-  const inventory = await invRes.json();
-  const orders = await ordRes.json();
-
-  return { inventory, orders };
-}
-
   const STORAGE_EXPANDED = 'shop-expanded-products';
   const DEFAULT_BATCH_SIZE = 12;
 
@@ -27,21 +14,27 @@ async function loadData() {
   let currentFilteredProducts = [];
   let currentRenderCount = 0;
   let expanded = new Set(JSON.parse(localStorage.getItem(STORAGE_EXPANDED) || '[]'));
-  
-  // Console filtering variables
   let selectedConsole = 'all';
+
   const consoleFilterContainer = document.createElement('div');
   consoleFilterContainer.className = 'console-filter-container';
   consoleFilterContainer.style.cssText = 'display: none; margin: 10px 0; padding: 12px; background: var(--filter-bg); border-radius: 8px; border: 1px solid var(--border-color);';
+
+  async function loadData() {
+    const response = await fetch('/.netlify/functions/inventory-get');
+    if (!response.ok) {
+      throw new Error('Unable to load inventory');
+    }
+
+    return response.json();
+  }
 
   function getBatchSize() {
     return DEFAULT_BATCH_SIZE;
   }
 
-
-  // Function to determine console from title
   function getConsoleFromTitle(title) {
-    const titleLower = title.toLowerCase();
+    const titleLower = String(title || '').toLowerCase();
     if (titleLower.includes('xbox one') || titleLower.includes('xbox series')) return 'Xbox One/Series';
     if (titleLower.includes('xbox 360')) return 'Xbox 360';
     if (titleLower.includes('xbox')) return 'Xbox';
@@ -60,15 +53,13 @@ async function loadData() {
     if (titleLower.includes('super nintendo') || titleLower.includes('snes')) return 'Super Nintendo';
     if (titleLower.includes('nes')) return 'Nintendo Entertainment System';
     if (titleLower.includes('game boy')) return 'Game Boy';
-    if (titleLower.includes('psp')) return 'PSP';
-    if (titleLower.includes('umd')) return 'PSP';
+    if (titleLower.includes('psp') || titleLower.includes('umd')) return 'PSP';
     return 'Other';
   }
 
-  // Get unique consoles from video games
-  function getUniqueConsoles(products) {
+  function getUniqueConsoles(items) {
     const consoles = new Set();
-    products.forEach(product => {
+    items.forEach((product) => {
       if (product.category === 'video-games') {
         consoles.add(getConsoleFromTitle(product.title));
       }
@@ -76,70 +67,79 @@ async function loadData() {
     return Array.from(consoles).sort();
   }
 
-  // Create console filter UI
-function createConsoleFilter(consoles) {
-    consoleFilterContainer.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <label for="consoleFilter" style="font-weight: bold; color: var(--text-color);">Filter by console:</label>
-        <select id="consoleFilter" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-med); background: var(--bg-card); color: var(--text-color);" aria-label="Filter video games by console">
-          <option value="all">All Consoles</option>
-          ${consoles.map(console => `<option value="${console}">${console}</option>`).join('')}
-        </select>
-      </div>
-    `;
+  function createConsoleFilter(consoles) {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display: flex; align-items: center; gap: 10px; flex-wrap: wrap;';
+
+    const label = document.createElement('label');
+    label.htmlFor = 'consoleFilter';
+    label.style.cssText = 'font-weight: bold; color: var(--text-color);';
+    label.textContent = 'Filter by console:';
+
+    const select = document.createElement('select');
+    select.id = 'consoleFilter';
+    select.setAttribute('aria-label', 'Filter video games by console');
+    select.style.cssText = 'padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-med); background: var(--bg-card); color: var(--text-color);';
+
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'All Consoles';
+    select.appendChild(allOption);
+
+    consoles.forEach((consoleName) => {
+      const option = document.createElement('option');
+      option.value = consoleName;
+      option.textContent = consoleName;
+      select.appendChild(option);
+    });
+
+    select.value = selectedConsole;
+    select.addEventListener('change', (event) => {
+      selectedConsole = event.target.value;
+      currentRenderCount = DEFAULT_BATCH_SIZE;
+      renderProducts();
+    });
+
+    wrapper.append(label, select);
+    consoleFilterContainer.replaceChildren(wrapper);
 
     const toolbar = document.querySelector('.shop-toolbar');
-    if (toolbar) {
-        // Check if console filter already exists to avoid duplicates
-        const existingFilter = document.querySelector('.console-filter-container');
-        if (existingFilter) {
-            existingFilter.remove();
-        }
-        toolbar.parentNode.insertBefore(consoleFilterContainer, toolbar.nextSibling);
+    if (toolbar && !consoleFilterContainer.parentNode) {
+      toolbar.parentNode.insertBefore(consoleFilterContainer, toolbar.nextSibling);
     }
-
-    const consoleFilter = document.getElementById('consoleFilter');
-    if (consoleFilter) {
-        consoleFilter.addEventListener('change', (e) => {
-            selectedConsole = e.target.value;
-            currentRenderCount = DEFAULT_BATCH_SIZE;
-            renderProducts();
-        });
-    }
-}
-
-
-function normalizeProducts(items) {
-  function resolveImagePath(src) {
-    if (!src) return 'favicon.ico';
-    if (src.startsWith('http') || src.startsWith('/')) return src;
-    return `inventory/${src}`;
   }
 
-  return items.map((item, idx) => {
-    const images = Array.isArray(item.images) && item.images.length > 0
-      ? item.images.map((img) => ({
-          src: resolveImagePath(img.src),
-          alt: img.alt || item.title || 'Retro product'
-        }))
-      : [{ src: 'favicon.ico', alt: item.title || 'Retro product' }];
+  function normalizeProducts(items) {
+    function resolveImagePath(src) {
+      if (!src) return 'favicon.ico';
+      if (src.startsWith('http') || src.startsWith('/')) return src;
+      return `inventory/${src}`;
+    }
 
-    return {
-      id: String(item.id ?? `product-${idx}`),
-      title: item.title || 'Vintage item',
-      images,
-      price: Number(item.price ?? 0),
-      details: {
-        en: item.description_en || '',
-        fr: item.description_fr || ''
-      },
-      date: item.date || '',
-      source: item.date || 'retro',
-      category: item.category || 'toys',
-      element: null
-    };
-  });
-}
+    return items.map((item, idx) => {
+      const images = Array.isArray(item.images) && item.images.length > 0
+        ? item.images.map((img) => ({
+            src: resolveImagePath(img.src),
+            alt: img.alt || item.title || 'Retro product'
+          }))
+        : [{ src: 'favicon.ico', alt: item.title || 'Retro product' }];
+
+      return {
+        id: String(item.id ?? `product-${idx}`),
+        title: item.title || 'Vintage item',
+        images,
+        price: Number(item.price ?? 0),
+        details: {
+          en: item.description_en || '',
+          fr: item.description_fr || ''
+        },
+        date: item.date || '',
+        source: item.date || 'retro',
+        category: item.category || 'toys',
+        element: null
+      };
+    });
+  }
 
   function ensureCardElement(product) {
     if (!product.element) {
@@ -162,8 +162,6 @@ function normalizeProducts(items) {
     });
   }
 
-
-
   function getFilterText() {
     return (searchInput && searchInput.value || '').trim().toLowerCase();
   }
@@ -172,23 +170,22 @@ function normalizeProducts(items) {
     return sortSelect ? sortSelect.value : 'relevance';
   }
 
+  function getSelectedCategory() {
+    return new URLSearchParams(window.location.search).get('category');
+  }
+
   function applyFiltersAndSort(items) {
-    // Get category from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const selectedCategory = urlParams.get('category');
+    const selectedCategory = getSelectedCategory();
+    let filtered = items.slice();
 
-    // Apply category filter first
-    let filtered = items;
     if (selectedCategory && selectedCategory !== 'all') {
-      filtered = items.filter(item => item.category === selectedCategory);
+      filtered = filtered.filter((item) => item.category === selectedCategory);
     }
 
-    // Apply console filter for video games
     if (selectedCategory === 'video-games' && selectedConsole !== 'all') {
-      filtered = filtered.filter(item => getConsoleFromTitle(item.title) === selectedConsole);
+      filtered = filtered.filter((item) => getConsoleFromTitle(item.title) === selectedConsole);
     }
 
-    // Then apply text search filter
     const filter = getFilterText();
     if (filter) {
       filtered = filtered.filter((item) => {
@@ -197,34 +194,37 @@ function normalizeProducts(items) {
       });
     }
 
-    // Then apply sorting
     const key = getSortKey();
     if (key === 'price-asc') {
-      filtered.sort((a,b) => a.price - b.price);
+      filtered.sort((a, b) => a.price - b.price);
     } else if (key === 'price-desc') {
-      filtered.sort((a,b) => b.price - a.price);
+      filtered.sort((a, b) => b.price - a.price);
     } else if (key === 'name') {
-      filtered.sort((a,b) => a.title.localeCompare(b.title));
+      filtered.sort((a, b) => a.title.localeCompare(b.title));
     }
 
     return filtered;
   }
 
   function createGallery(product) {
-    if (!product.images || product.images.length < 1) {
-      return '';
-    }
+    const gallery = document.createElement('div');
+    gallery.className = 'product-gallery';
 
-    const thumbnails = product.images.slice(0, 2);
-    return `
-      <div class="product-gallery">
-        ${thumbnails.map((image) => `
-          <div class="product-gallery-item">
-            <img src="${image.src}" alt="${image.alt}" data-image-src="${image.src}" loading="lazy">
-          </div>
-        `).join('')}
-      </div>
-    `;
+    product.images.slice(0, 2).forEach((image) => {
+      const item = document.createElement('div');
+      item.className = 'product-gallery-item';
+
+      const img = document.createElement('img');
+      img.src = image.src;
+      img.alt = image.alt;
+      img.dataset.imageSrc = image.src;
+      img.loading = 'lazy';
+
+      item.appendChild(img);
+      gallery.appendChild(item);
+    });
+
+    return gallery;
   }
 
   function createCard(product) {
@@ -241,45 +241,102 @@ function normalizeProducts(items) {
     card.className = `product-card${isExpanded ? ' expanded' : ''}`;
     card.dataset.productId = product.id;
 
-    card.innerHTML = `
-      ${!isExpanded ? `
-        <div class="product-card-image">
-          <img src="${product.images[0].src}" alt="${product.images[0].alt}">
-        </div>
-      ` : ''}
-      <div class="product-card-body">
-        <div class="product-card-header">
-          <button type="button" class="product-title" data-show-id="${product.id}">${product.title}</button>
-          <span class="product-price">${formattedPrice}</span>
-        </div>
-        <div class="product-meta">
-          <span class="product-condition">${window.SiteLocale ? window.SiteLocale.translate('conditionLabel') : 'Condition'}: Mint</span>
-          <span class="product-shipping">${window.SiteLocale ? window.SiteLocale.translate('shippingLocale') : 'Canada / USA shipping'}</span>
-        </div>
-        ${isExpanded ? `
-          <div class="product-detail-extra">
-            ${createGallery(product)}
-            <p class="product-full-description">${descriptionText}</p>
-            <p class="product-source">${window.SiteLocale ? window.SiteLocale.translate('shippedFrom') : 'Shipped from Quebec'} • ${product.source}</p>
-          </div>
-        ` : `<p class="product-snippet">${descriptionText.slice(0, 120)}${descriptionText.length > 120 ? '…' : ''}</p>`}
-        <div class="product-actions">
-          <button type="button" class="toggle-details" data-show-id="${product.id}">${toggleText}</button>
-          <button type="button" class="add-to-cart" data-id="${product.id}" data-name="${product.title}" data-price="${product.price}">${addToCartText}</button>
-        </div>
-      </div>
-    `;
+    if (!isExpanded) {
+      const imageWrap = document.createElement('div');
+      imageWrap.className = 'product-card-image';
+      const img = document.createElement('img');
+      img.src = product.images[0].src;
+      img.alt = product.images[0].alt;
+      imageWrap.appendChild(img);
+      card.appendChild(imageWrap);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'product-card-body';
+
+    const header = document.createElement('div');
+    header.className = 'product-card-header';
+
+    const titleButton = document.createElement('button');
+    titleButton.type = 'button';
+    titleButton.className = 'product-title';
+    titleButton.dataset.showId = product.id;
+    titleButton.textContent = product.title;
+
+    const price = document.createElement('span');
+    price.className = 'product-price';
+    price.textContent = formattedPrice;
+    header.append(titleButton, price);
+
+    const meta = document.createElement('div');
+    meta.className = 'product-meta';
+
+    const condition = document.createElement('span');
+    condition.className = 'product-condition';
+    condition.textContent = `${window.SiteLocale ? window.SiteLocale.translate('conditionLabel') : 'Condition'}: Mint`;
+
+    const shipping = document.createElement('span');
+    shipping.className = 'product-shipping';
+    shipping.textContent = window.SiteLocale ? window.SiteLocale.translate('shippingLocale') : 'Canada / USA shipping';
+    meta.append(condition, shipping);
+
+    body.append(header, meta);
+
+    if (isExpanded) {
+      const extra = document.createElement('div');
+      extra.className = 'product-detail-extra';
+
+      const description = document.createElement('p');
+      description.className = 'product-full-description';
+      description.textContent = descriptionText;
+
+      const source = document.createElement('p');
+      source.className = 'product-source';
+      source.textContent = `${window.SiteLocale ? window.SiteLocale.translate('shippedFrom') : 'Shipped from Quebec'} - ${product.source}`;
+
+      extra.append(createGallery(product), description, source);
+      body.appendChild(extra);
+    } else {
+      const snippet = document.createElement('p');
+      snippet.className = 'product-snippet';
+      snippet.textContent = `${descriptionText.slice(0, 120)}${descriptionText.length > 120 ? '...' : ''}`;
+      body.appendChild(snippet);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'product-actions';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'toggle-details';
+    toggle.dataset.showId = product.id;
+    toggle.textContent = toggleText;
+
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'add-to-cart';
+    add.dataset.id = product.id;
+    add.dataset.name = product.title;
+    add.dataset.price = String(product.price);
+    add.textContent = addToCartText;
+
+    actions.append(toggle, add);
+    body.appendChild(actions);
+    card.appendChild(body);
 
     return card;
   }
 
   function renderVisibleProducts() {
     if (!shopGrid) return;
-    shopGrid.innerHTML = '';
+    shopGrid.replaceChildren();
 
     const visible = currentFilteredProducts.slice(0, currentRenderCount);
     if (!visible.length) {
-      shopGrid.innerHTML = `<div class="empty-state">${window.SiteLocale ? window.SiteLocale.translate('searchPlaceholder') : 'No products found.'}</div>`;
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = window.SiteLocale ? window.SiteLocale.translate('searchPlaceholder') : 'No products found.';
+      shopGrid.appendChild(empty);
       if (loadMoreBtn) loadMoreBtn.style.display = 'none';
       return;
     }
@@ -304,54 +361,29 @@ function normalizeProducts(items) {
     currentFilteredProducts = applyFiltersAndSort(products);
     currentRenderCount = Math.min(getBatchSize(), currentFilteredProducts.length);
     renderVisibleProducts();
-    
-    // Show/hide console filter based on category
-    const urlParams = new URLSearchParams(window.location.search);
-    const selectedCategory = urlParams.get('category');
-    
-    if (selectedCategory === 'video-games') {
+
+    if (getSelectedCategory() === 'video-games') {
+      createConsoleFilter(getUniqueConsoles(products));
       consoleFilterContainer.style.display = 'block';
-      // Update console options if needed
-      const consoles = getUniqueConsoles(products);
-      const currentConsoles = Array.from(consoleFilterContainer.querySelectorAll('option'))
-        .slice(1) // Skip "All Consoles"
-        .map(opt => opt.value);
-      
-      // Only recreate if consoles changed or filter doesn't exist yet
-      if (JSON.stringify(consoles) !== JSON.stringify(currentConsoles) || !document.getElementById('consoleFilter')) {
-        createConsoleFilter(consoles);
-      }
     } else {
       consoleFilterContainer.style.display = 'none';
-      selectedConsole = 'all'; // Reset console filter when leaving video games
-      const consoleFilter = document.getElementById('consoleFilter');
-      if (consoleFilter) {
-        consoleFilter.value = 'all';
-      }
+      selectedConsole = 'all';
     }
   }
 
   function toggleProductExpanded(id) {
-  id = String(id);
+    const product = products.find((item) => String(item.id) === String(id));
+    if (!product) return;
 
-  const product = findProductById(id);
-  if (!product) return;
+    if (expanded.has(product.id)) {
+      expanded.delete(product.id);
+    } else {
+      expanded.add(product.id);
+    }
 
-  if (expanded.has(id)) {
-    expanded.delete(id);
-  } else {
-    expanded.add(id);
+    localStorage.setItem(STORAGE_EXPANDED, JSON.stringify(Array.from(expanded)));
+    updateCardExpanded(product);
   }
-
-  localStorage.setItem(STORAGE_EXPANDED, JSON.stringify(Array.from(expanded)));
-
-  updateCardExpanded(product);
-}
-
-  function findProductById(id) {
-  id = String(id);
-  return products.find((product) => String(product.id) === id);
-}
 
   function showImageViewer(src, alt) {
     if (!imageViewer || !imageViewerImg) return;
@@ -377,55 +409,57 @@ function normalizeProducts(items) {
 
     const toggleButton = event.target.closest('[data-show-id]');
     if (toggleButton) {
-      const id = toggleButton.getAttribute('data-show-id');
-      toggleProductExpanded(id);
+      toggleProductExpanded(toggleButton.getAttribute('data-show-id'));
       return;
     }
 
     const addButton = event.target.closest('.add-to-cart');
     if (addButton) {
       event.stopPropagation();
-      const btn = addButton;
-      addToCart(btn.dataset.id, btn.dataset.name, parseFloat(btn.dataset.price));
-      btn.textContent = window.SiteLocale ? `${window.SiteLocale.translate('addToCartLabel')} ✓` : 'Added ✓';
-      btn.disabled = true;
+      addToCart(addButton.dataset.id, addButton.dataset.name, parseFloat(addButton.dataset.price));
+      addButton.textContent = window.SiteLocale ? `${window.SiteLocale.translate('addToCartLabel')} OK` : 'Added OK';
+      addButton.disabled = true;
       setTimeout(() => {
-        btn.textContent = window.SiteLocale ? window.SiteLocale.translate('addToCartLabel') : 'Add to cart';
-        btn.disabled = false;
+        addButton.textContent = window.SiteLocale ? window.SiteLocale.translate('addToCartLabel') : 'Add to cart';
+        addButton.disabled = false;
       }, 900);
-      return;
     }
   }
 
   function attachEvents() {
-    if (searchInput) {
-      const debounce = (fn, delay) => {
-        let timer = null;
-        return (...args) => {
-          clearTimeout(timer);
-          timer = window.setTimeout(() => fn(...args), delay);
-        };
+    const debounce = (fn, delay) => {
+      let timer = null;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = window.setTimeout(() => fn(...args), delay);
       };
+    };
+
+    if (searchInput) {
       searchInput.addEventListener('input', debounce(() => {
         currentRenderCount = DEFAULT_BATCH_SIZE;
         renderProducts();
       }, 180));
     }
+
     if (sortSelect) {
       sortSelect.addEventListener('change', () => {
         currentRenderCount = DEFAULT_BATCH_SIZE;
         renderProducts();
       });
     }
+
     if (shopGrid) {
       shopGrid.addEventListener('click', handleShopClick);
     }
+
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', () => {
         currentRenderCount = Math.min(currentFilteredProducts.length, currentRenderCount + getBatchSize());
         renderVisibleProducts();
       });
     }
+
     if (imageViewer) {
       imageViewer.addEventListener('click', (event) => {
         if (event.target === imageViewer || event.target === imageViewerClose) {
@@ -433,6 +467,7 @@ function normalizeProducts(items) {
         }
       });
     }
+
     if (imageViewerClose) {
       imageViewerClose.addEventListener('click', hideImageViewer);
     }
@@ -459,22 +494,17 @@ function normalizeProducts(items) {
   }
 
   function highlightActiveCategory() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const selectedCategory = urlParams.get('category');
-    
-    // Remove active class from all category links
+    const selectedCategory = getSelectedCategory();
     const categoryLinks = document.querySelectorAll('.nav-dropdown-menu a');
-    categoryLinks.forEach(link => link.classList.remove('active'));
-    
-    // Add active class to the current category link
+    categoryLinks.forEach((link) => link.classList.remove('active'));
+
     if (selectedCategory) {
       const activeLink = document.querySelector(`.nav-dropdown-menu a[href*="category=${selectedCategory}"]`);
       if (activeLink) {
         activeLink.classList.add('active');
       }
     }
-    
-    // Also make sure the main Shop link stays active when on shop pages
+
     const shopTrigger = document.querySelector('.nav-dropdown-trigger');
     if (shopTrigger) {
       shopTrigger.classList.add('active');
@@ -483,27 +513,24 @@ function normalizeProducts(items) {
 
   async function init() {
     if (!shopGrid) return;
+
     try {
-      const results = await loadData();
-      products = normalizeProducts(results.flat());
+      products = normalizeProducts(await loadData());
       currentFilteredProducts = applyFiltersAndSort(products);
       currentRenderCount = Math.min(getBatchSize(), currentFilteredProducts.length);
       renderVisibleProducts();
       attachEvents();
       highlightActiveCategory();
-      
-      // Initialize console filter for video games category - THIS IS THE KEY FIX
-      const urlParams = new URLSearchParams(window.location.search);
-      const selectedCategory = urlParams.get('category');
-      if (selectedCategory === 'video-games') {
-        const consoles = getUniqueConsoles(products);
-        createConsoleFilter(consoles);
+
+      if (getSelectedCategory() === 'video-games') {
+        createConsoleFilter(getUniqueConsoles(products));
         consoleFilterContainer.style.display = 'block';
       }
     } catch (error) {
-      if (shopGrid) {
-        shopGrid.innerHTML = `<div class="error-state">${error.message}</div>`;
-      }
+      const errorEl = document.createElement('div');
+      errorEl.className = 'error-state';
+      errorEl.textContent = error.message;
+      shopGrid.replaceChildren(errorEl);
       console.error(error);
     }
   }

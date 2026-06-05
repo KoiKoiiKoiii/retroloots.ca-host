@@ -1,5 +1,15 @@
 const nodemailer = require('nodemailer');
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
 exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return {
@@ -43,17 +53,22 @@ exports.handler = async function(event, context) {
       }
     });
 
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(subject);
+    const safeMessage = escapeHtml(message).replace(/\n/g, '<br>');
+
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: 'highskills123@gmail.com',
       subject: `RetroLoots Contact: ${subject} - from ${name}`,
       html: `
         <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Name:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${safeEmail}</p>
+        <p><strong>Subject:</strong> ${safeSubject}</p>
         <p><strong>Message:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <p>${safeMessage}</p>
       `
     };
 

@@ -7,10 +7,10 @@
     "stripe": "^12.0.0",
     "nodemailer": "^6.9.14"
   },
-  "description": "Filler",
-  "main": "importer.js",
+  "description": "Static Retro Loots storefront with Netlify checkout and admin functions.",
+  "main": "server.py",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/smoke-tests.js"
   },
   "repository": {
     "type": "git",
