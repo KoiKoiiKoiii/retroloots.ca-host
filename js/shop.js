@@ -1,5 +1,5 @@
 const ShopPage = (function() {
-  const SUPABASE_BASE_URL =  'https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/images/';
+  const baseUrl =  'https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/images/';
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
@@ -120,7 +120,7 @@ function resolveImagePath(src) {
 
   src = src.replace(/^images\//, '');
 
-  return `${SUPABASE_BASE_URL}${src}`;
+  return `${baseUrl}${src}`;
 }
 
     return items.map((item, idx) => {
