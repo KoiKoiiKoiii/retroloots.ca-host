@@ -1,5 +1,4 @@
 const ShopPage = (function() {
-  const SUPABASE_IMG_URL = process.env.SUPABASE_IMG_URL;
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
@@ -120,7 +119,7 @@ function resolveImagePath(src) {
 
   src = src.replace(/^images\//, '');
 
-  return `${SUPABASE_IMG_URL}${src}`;
+  return `https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/${src}`;
 }
 
     return items.map((item, idx) => {
