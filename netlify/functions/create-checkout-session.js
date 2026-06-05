@@ -38,7 +38,11 @@ exports.handler = async (event) => {
     mode: 'payment',
     line_items,
     success_url: `${process.env.URL}/success.html`,
-    cancel_url: `${process.env.URL}/`
+    cancel_url: `${process.env.URL}/`,
+      // 👇 CRITICAL PART
+    metadata: {
+      itemIds: JSON.stringify(itemIds)
+  }
   });
 
   return {

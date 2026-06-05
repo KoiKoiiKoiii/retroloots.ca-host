@@ -8,12 +8,19 @@ const ShopPage = (function() {
   const imageViewerImg = document.getElementById('imageViewerImg');
   const imageViewerClose = document.getElementById('imageViewerClose');
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+async function loadData() {
+  const [invRes, ordRes] = await Promise.all([
+    fetch("/.netlify/functions/inventory-get"),
+    fetch("/.netlify/functions/orders-get")
+  ]);
 
+  inventory = await invRes.json();
+  orders = await ordRes.json();
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+  renderStats();
+  renderInventory();
+  renderOrders();
+}
   const STORAGE_EXPANDED = 'shop-expanded-products';
   const DEFAULT_BATCH_SIZE = 12;
 

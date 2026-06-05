@@ -117,13 +117,19 @@
 
 <script>
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+async function loadData() {
+  const [invRes, ordRes] = await Promise.all([
+    fetch("/.netlify/functions/inventory-get"),
+    fetch("/.netlify/functions/orders-get")
+  ]);
 
-window.supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-);
+  inventory = await invRes.json();
+  orders = await ordRes.json();
+
+  renderStats();
+  renderInventory();
+  renderOrders();
+}
 
 const sb = window.supabaseClient;
 

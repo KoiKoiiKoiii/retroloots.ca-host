@@ -21,15 +21,27 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: err.message };
   }
 
-  if (stripeEvent.type === 'checkout.session.completed') {
-    const session = stripeEvent.data.object;
+if (stripeEvent.type === 'checkout.session.completed') {
+  const session = stripeEvent.data.object;
 
-    // In production you'd attach metadata of item IDs
-    await supabase.from('orders').insert({
-      stripe_session_id: session.id,
-      total: session.amount_total / 100
-    });
+  const itemIds = JSON.parse(session.metadata.itemIds || "[]");
+
+  // 1. Mark inventory items as sold
+  if (itemIds.length > 0) {
+    await supabase
+      .from('inventory')
+      .update({ sold: true })
+      .in('id', itemIds);
+      .eq('sold', false);
   }
 
-  return { statusCode: 200, body: 'ok' };
+  // 2. Save order
+  await supabase.from('orders').insert({
+    stripe_session: session.id,
+    total: session.amount_total / 100,
+    items: itemIds
+  });
+}
+
+  return { statusCode: 200, body: 'OK' };
 };
