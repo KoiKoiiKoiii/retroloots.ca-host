@@ -31,7 +31,7 @@ if (stripeEvent.type === 'checkout.session.completed') {
     await supabase
       .from('inventory')
       .update({ sold: true })
-      .in('id', itemIds);
+      .in('id', itemIds)
       .eq('sold', false);
   }
 
