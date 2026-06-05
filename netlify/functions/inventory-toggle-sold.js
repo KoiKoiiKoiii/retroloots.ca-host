@@ -2,7 +2,24 @@ const supabase = require("./_supabase");
 
 exports.handler = async (event) => {
   try {
-    const { id } = JSON.parse(event.body);
+    let id;
+
+    try {
+      const body = event.body ? JSON.parse(event.body) : {};
+      id = body.id;
+    } catch {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid JSON body" }),
+      };
+    }
+
+    if (!id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing id" }),
+      };
+    }
 
     const { data, error } = await supabase
       .from("inventory")
@@ -13,7 +30,7 @@ exports.handler = async (event) => {
     if (error) {
       return {
         statusCode: 500,
-        body: error.message,
+        body: JSON.stringify({ error: error.message }),
       };
     }
 
@@ -25,7 +42,7 @@ exports.handler = async (event) => {
     if (updateError) {
       return {
         statusCode: 500,
-        body: updateError.message,
+        body: JSON.stringify({ error: updateError.message }),
       };
     }
 
@@ -36,7 +53,7 @@ exports.handler = async (event) => {
   } catch (err) {
     return {
       statusCode: 500,
-      body: err.message,
+      body: JSON.stringify({ error: err.message }),
     };
   }
 };
