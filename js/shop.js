@@ -163,25 +163,7 @@ function normalizeProducts(items) {
     });
   }
 
-async function loadData(category, search) {
-  let query = supabaseClient
-    .from('inventory')
-    .select('id, title, price, description_en, description_fr, images, category, date');
 
-  if (category && category !== 'all') {
-    query = query.eq('category', category);
-  }
-
-  if (search) {
-    query = query.ilike('title', `%${search}%`);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw new Error(error.message);
-
-  return data;
-}
 
   function getFilterText() {
     return (searchInput && searchInput.value || '').trim().toLowerCase();
