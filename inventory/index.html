@@ -10,6 +10,7 @@
         <link rel="stylesheet" href="../css/styles.css">
         <script src="../js/site.js" defer></script>
         <script src="../js/cart.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     </head>
     <body data-page="inventory">
         <header class="site-header">
@@ -66,13 +67,6 @@
                 <label for="dateFilter">Filter by date:</label>
                 <select id="dateFilter" aria-label="Filter toys by date folder">
                     <option value="all">All Dates</option>
-                    <option value="5-27-26">5-27-26</option>
-                    <option value="5-28-26">5-28-26</option>
-                    <option value="5-29-26">5-29-26</option>
-                    <option value="5-30-26">5-30-26</option>
-                    <option value="6-1-26">6-1-26</option>
-                    <option value="6-4-26">6-4-26</option>
-
                 </select>
 
                 <label for="searchInput">Search:</label>
@@ -121,469 +115,377 @@
             </div>
         </aside>
 
-        <script>
-        const toyContainer = document.getElementById('toyContainer');
-        const filterSelect = document.getElementById('dateFilter');
-        const searchInput = document.getElementById('searchInput');
-        const sortSelect = document.getElementById('sortSelect');
-        const itemCountEl = document.getElementById('itemCount');
-        const pricingSummary = document.getElementById('pricingSummary');
-        const totalValueEl = document.getElementById('totalValue');
-        const averagePriceEl = document.getElementById('averagePrice');
-        
-        const toyDataCache = {};
-        const STORAGE_FILTER = 'inventoryDateFilter';
-        const STORAGE_SCROLL = 'inventoryScrollY';
-        const STORAGE_SEARCH = 'inventorySearch';
-        const STORAGE_SORT = 'inventorySort';
-        const AUTH_STORAGE = 'adminInventoryAuthorized';
-        const ADMIN_USERNAME = 'admin';
-        const ADMIN_PASSWORD = 'retr0loot@@';
-        const availableDates = Array.from(filterSelect.options)
-            .map(option => option.value)
-            .filter(value => value !== 'all');
+<script>
 
-        const authGate = document.getElementById('authGate');
-        const adminLoginForm = document.getElementById('adminLoginForm');
-        const adminUsername = document.getElementById('adminUsername');
-        const adminPassword = document.getElementById('adminPassword');
-        const authError = document.getElementById('authError');
-        const inventoryContent = document.getElementById('inventoryContent');
+const SUPABASE_URL = 'https://ayigmbzistxzhjbncrru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_UYAObNcDMg43hhlCKO0rEw_fhZTvjHE';
 
-        let scrollSaveTimeout = null;
-        let allToys = [];
-        let currentFilteredToys = [];
-        let currentRenderCount = 0;
-        const DEFAULT_BATCH_SIZE = 20;
+// ✅ SINGLE SAFE CLIENT
+window.supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+);
 
-        function isAdminAuthenticated() {
-            return sessionStorage.getItem(AUTH_STORAGE) === 'true';
-        }
+const sb = window.supabaseClient;
 
-        function setAdminAuthenticated(value) {
-            if (value) {
-                sessionStorage.setItem(AUTH_STORAGE, 'true');
-            } else {
-                sessionStorage.removeItem(AUTH_STORAGE);
-            }
-        }
+// ---------------- DOM ----------------
+const toyContainer = document.getElementById('toyContainer');
+const filterSelect = document.getElementById('dateFilter');
+const searchInput = document.getElementById('searchInput');
+const sortSelect = document.getElementById('sortSelect');
+const itemCountEl = document.getElementById('itemCount');
+const pricingSummary = document.getElementById('pricingSummary');
+const totalValueEl = document.getElementById('totalValue');
+const averagePriceEl = document.getElementById('averagePrice');
 
-        function updateAuthUI() {
-            const authenticated = isAdminAuthenticated();
-            authGate.style.display = authenticated ? 'none' : 'flex';
-            inventoryContent.style.display = authenticated ? 'block' : 'none';
-        }
-
-        function handleLoginSuccess() {
-            setAdminAuthenticated(true);
-            authError.textContent = '';
-            updateAuthUI();
-            renderToys();
-        }
-
-        adminLoginForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const enteredUsername = adminUsername.value.trim();
-            const enteredPassword = adminPassword.value;
-
-            if (enteredUsername === ADMIN_USERNAME && enteredPassword === ADMIN_PASSWORD) {
-                handleLoginSuccess();
-            } else {
-                authError.textContent = 'Invalid username or password.';
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            updateAuthUI();
-            if (isAdminAuthenticated()) {
-                restoreUIState();
-                await renderToys();
-                restoreScrollPosition();
-            }
-        });
-
-function getBatchSize() {
-    return DEFAULT_BATCH_SIZE;
-}
-
+const authGate = document.getElementById('authGate');
+const adminLoginForm = document.getElementById('adminLoginForm');
+const adminUsername = document.getElementById('adminUsername');
+const adminPassword = document.getElementById('adminPassword');
+const authError = document.getElementById('authError');
+const inventoryContent = document.getElementById('inventoryContent');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
-        function saveScroll() {
-            localStorage.setItem(STORAGE_SCROLL, String(window.scrollY));
-        }
 
-        function onScroll() {
-            if (scrollSaveTimeout !== null) return;
-            scrollSaveTimeout = setTimeout(() => {
-                saveScroll();
-                scrollSaveTimeout = null;
-            }, 150);
-        }
+// ---------------- STORAGE ----------------
+const STORAGE_FILTER = 'inventoryDateFilter';
+const STORAGE_SCROLL = 'inventoryScrollY';
+const STORAGE_SEARCH = 'inventorySearch';
+const STORAGE_SORT = 'inventorySort';
+const AUTH_STORAGE = 'adminInventoryAuthorized';
 
-        window.addEventListener('scroll', onScroll, { passive: true });
+// ---------------- AUTH ----------------
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'retr0loot@@';
 
-        async function fetchToyData(date) {
-            if (toyDataCache[date]) {
-                return toyDataCache[date];
-            }
-            const url = `data/${date}.json`;
-            let response;
-            try {
-                response = await fetch(url);
-            } catch (error) {
-                throw new Error(`Failed to load ${url}. If you opened this page as a local file (file://), use a local web server or host the site on GitHub Pages.`);
-            }
-            if (!response.ok) {
-                throw new Error(`Unable to load ${url}: ${response.status} ${response.statusText}`);
-            }
-            const data = await response.json();
-            toyDataCache[date] = data;
-            return data;
-        }
+// ---------------- STATE ----------------
+let scrollSaveTimeout = null;
+let allToys = [];
+let currentFilteredToys = [];
+let currentRenderCount = 0;
+const DEFAULT_BATCH_SIZE = 20;
 
-        async function loadToys(selected = 'all') {
-            if (selected === 'all') {
-                const allData = await Promise.all(availableDates.map(fetchToyData));
-                const toys = allData.flat();
-                return assignItemNumbers(toys);
-            }
-            const toys = await fetchToyData(selected);
-            return assignItemNumbers(toys);
-        }
-
-        function assignItemNumbers(toys) {
-            const numbersByDate = {};
-            toys.forEach(toy => {
-                if (!numbersByDate[toy.date]) {
-                    numbersByDate[toy.date] = 0;
-                }
-                numbersByDate[toy.date]++;
-                toy.itemNumber = numbersByDate[toy.date];
-            });
-            return toys;
-        }
-
-        function copyToClipboard(text, copyButton) {
-            navigator.clipboard.writeText(text).then(() => {
-                const originalSvg = copyButton.innerHTML;
-                copyButton.innerHTML = '✓';
-                copyButton.classList.add('copied');
-
-                setTimeout(() => {
-                    copyButton.innerHTML = originalSvg;
-                    copyButton.classList.remove('copied');
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-            });
-        }
-
-        function extractDescriptionParts(htmlDescription) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = htmlDescription;
-
-            let enDesc = '';
-            let frDesc = '';
-            let price = '';
-
-            const paragraphs = tempDiv.querySelectorAll('p');
-            paragraphs.forEach(p => {
-                const text = p.textContent;
-                if (text.includes('Description (EN):')) {
-                    enDesc = text.replace('Description (EN):', '').trim();
-                } else if (text.includes('Description (FR):')) {
-                    frDesc = text.replace('Description (FR):', '').trim();
-                } else if (text.includes('Price:')) {
-                    price = text.replace('Price:', '').trim();
-                }
-            });
-
-            return { enDesc, frDesc, price };
-        }
-
-        function createCopyButton(dataAttr) {
-            return `<svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-copy="${dataAttr}">
-                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                    </svg>`;
-        }
-
-        function createToyCard(toy) {
-            const card = document.createElement('div');
-            card.className = 'toy';
-            card.dataset.date = toy.date;
-
-            const { enDesc, frDesc, price } = extractDescriptionParts(toy.descriptionHtml);
-
-            const descriptionWithIcons = `
-                <p><svg class="copy-icon copy-btn-en" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; display: inline; margin-right: 6px; vertical-align: middle;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg><strong>Description (EN):</strong> ${enDesc}</p>
-                <p><svg class="copy-icon copy-btn-fr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; display: inline; margin-right: 6px; vertical-align: middle;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg><strong>Description (FR):</strong> ${frDesc}</p>
-                <p><svg class="copy-icon copy-btn-price" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; display: inline; margin-right: 6px; vertical-align: middle;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg><strong>Price:</strong> ${price}</p>
-            `;
-
-            card.innerHTML = `
-                <div class="toy-number">${toy.date} Item #${toy.itemNumber}</div>
-                <div class="copy-wrapper">
-                    <h2 style="margin: 0; flex: 1;">${toy.title}</h2>
-                    <svg class="copy-icon copy-btn-title" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                    </svg>
-                </div>
-                <div class="toy-images">${toy.images.map(img => `<img src="${img.src}" alt="${img.alt}" loading="lazy" decoding="async">`).join('')}
-                </div>
-                <div class="toy-description">${descriptionWithIcons}</div>
-            `;
-
-            const titleBtn = card.querySelector('.copy-btn-title');
-            const enBtn = card.querySelector('.copy-btn-en');
-            const frBtn = card.querySelector('.copy-btn-fr');
-            const priceBtn = card.querySelector('.copy-btn-price');
-
-            titleBtn.addEventListener('click', () => {
-                copyToClipboard(toy.title, titleBtn);
-            });
-
-            enBtn.addEventListener('click', () => {
-                copyToClipboard(enDesc, enBtn);
-            });
-
-            frBtn.addEventListener('click', () => {
-                copyToClipboard(frDesc, frBtn);
-            });
-
-            priceBtn.addEventListener('click', () => {
-                copyToClipboard(price, priceBtn);
-            });
-
-            return card;
-        }
-
-        function updateItemCount(displayCount, totalCount) {
-    if (!itemCountEl) return;
-
-    if (displayCount >= totalCount) {
-        itemCountEl.textContent =
-            `(${totalCount} items)`;
-    } else {
-        itemCountEl.textContent =
-            `(${displayCount} of ${totalCount} items)`;
-    }
+// ---------------- AUTH LOGIC ----------------
+function isAdminAuthenticated() {
+    return sessionStorage.getItem(AUTH_STORAGE) === 'true';
 }
 
-        function parsePrice(priceStr) {
-            const match = priceStr.match(/[\d.]+/);
-            return match ? parseFloat(match[0]) : 0;
+function setAdminAuthenticated(value) {
+    if (value) sessionStorage.setItem(AUTH_STORAGE, 'true');
+    else sessionStorage.removeItem(AUTH_STORAGE);
+}
+
+function updateAuthUI() {
+    const authenticated = isAdminAuthenticated();
+    authGate.style.display = authenticated ? 'none' : 'flex';
+    inventoryContent.style.display = authenticated ? 'block' : 'none';
+}
+
+function handleLoginSuccess() {
+    setAdminAuthenticated(true);
+    authError.textContent = '';
+    updateAuthUI();
+    renderToys();
+}
+
+adminLoginForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const u = adminUsername.value.trim();
+    const p = adminPassword.value;
+
+    if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
+        handleLoginSuccess();
+    } else {
+        authError.textContent = 'Invalid username or password.';
+    }
+});
+
+// ---------------- SUPABASE ----------------
+async function populateDateFilter() {
+
+    const { data, error } = await sb
+        .from('inventory')
+        .select('date');
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    const uniqueDates = [...new Set(data.map(i => i.date))];
+
+    filterSelect.innerHTML = '<option value="all">All Dates</option>';
+
+    uniqueDates.sort().forEach(date => {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date;
+        filterSelect.appendChild(option);
+    });
+}
+
+async function loadToys(selected = 'all') {
+
+    let query = sb.from('inventory').select('*');
+
+    if (selected !== 'all') {
+        query = query.eq('date', selected);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    return assignItemNumbers(data.map(item => ({
+        date: item.date,
+        category: item.category,
+        title: item.title,
+        images: item.images,
+        descriptionHtml: item.description_html
+    })));
+}
+
+// ---------------- TOY PROCESSING ----------------
+function assignItemNumbers(toys) {
+    const map = {};
+
+    toys.forEach(t => {
+        if (!map[t.date]) map[t.date] = 0;
+        map[t.date]++;
+        t.itemNumber = map[t.date];
+    });
+
+    return toys;
+}
+
+// ---------------- COPY ----------------
+function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const old = btn.innerHTML;
+        btn.innerHTML = '✓';
+        btn.classList.add('copied');
+
+        setTimeout(() => {
+            btn.innerHTML = old;
+            btn.classList.remove('copied');
+        }, 2000);
+    });
+}
+
+// ---------------- PARSING ----------------
+function extractDescriptionParts(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    let enDesc = '';
+    let frDesc = '';
+    let price = '';
+
+    div.querySelectorAll('p').forEach(p => {
+        const text = p.textContent;
+
+        if (text.includes('Description (EN):')) {
+            enDesc = text.replace('Description (EN):', '').trim();
+        } else if (text.includes('Description (FR):')) {
+            frDesc = text.replace('Description (FR):', '').trim();
+        } else if (text.includes('Price:')) {
+            price = text.replace('Price:', '').trim();
         }
+    });
 
-        function updatePricingSummary(toys) {
-            if (toys.length === 0) {
-                pricingSummary.style.display = 'none';
-                return;
-            }
+    return { enDesc, frDesc, price };
+}
 
-            let totalPrice = 0;
-            toys.forEach(toy => {
-                const { price } = extractDescriptionParts(toy.descriptionHtml);
-                totalPrice += parsePrice(price);
-            });
+// ---------------- CARD UI ----------------
+function createToyCard(toy) {
 
-            const avgPrice = toys.length > 0 ? (totalPrice / toys.length) : 0;
-            totalValueEl.textContent = '$' + totalPrice.toFixed(2);
-            averagePriceEl.textContent = '$' + avgPrice.toFixed(2);
-            pricingSummary.style.display = 'flex';
-        }
+    const card = document.createElement('div');
+    card.className = 'toy';
 
-        function applyFiltersAndSort(toys) {
-            // Filter by date
-            let filtered = toys;
-            const selectedDate = filterSelect.value;
-            if (selectedDate !== 'all') {
-                filtered = filtered.filter(toy => toy.date === selectedDate);
-            }
+    const { enDesc, frDesc, price } =
+        extractDescriptionParts(toy.descriptionHtml);
 
-            // Filter by search
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(toy => toy.title.toLowerCase().includes(searchTerm));
-            }
+    const descriptionHTML = `
+        <p><strong>Description (EN):</strong> ${enDesc}</p>
+        <p><strong>Description (FR):</strong> ${frDesc}</p>
+        <p><strong>Price:</strong> ${price}</p>
+    `;
 
-            // Sort
-            const sortBy = sortSelect.value;
-            const sorted = [...filtered];
-            
-            if (sortBy === 'name') {
-                sorted.sort((a, b) => a.title.localeCompare(b.title));
-            } else if (sortBy === 'price-asc') {
-                sorted.sort((a, b) => {
-                    const priceA = parsePrice(extractDescriptionParts(a.descriptionHtml).price);
-                    const priceB = parsePrice(extractDescriptionParts(b.descriptionHtml).price);
-                    return priceA - priceB;
-                });
-            } else if (sortBy === 'price-desc') {
-                sorted.sort((a, b) => {
-                    const priceA = parsePrice(extractDescriptionParts(a.descriptionHtml).price);
-                    const priceB = parsePrice(extractDescriptionParts(b.descriptionHtml).price);
-                    return priceB - priceA;
-                });
-            }
-            // 'date' is default, no additional sorting needed
+    card.innerHTML = `
+        <div class="toy-number">${toy.date} Item #${toy.itemNumber}</div>
 
-            return sorted;
-        }
+        <h2>${toy.title}</h2>
 
-        async function renderToys() {
+        <div class="toy-images">
+            ${toy.images.map(img =>
+                `<img src="${img.src}" alt="${img.alt}" loading="lazy">`
+            ).join('')}
+        </div>
+
+        <div class="toy-description">${descriptionHTML}</div>
+    `;
+
+    return card;
+}
+
+// ---------------- FILTER + SORT ----------------
+function applyFiltersAndSort(toys) {
+
+    let filtered = [...toys];
+
+    const selectedDate = filterSelect.value;
+    if (selectedDate !== 'all') {
+        filtered = filtered.filter(t => t.date === selectedDate);
+    }
+
+    const searchTerm = searchInput.value.toLowerCase();
+    if (searchTerm) {
+        filtered = filtered.filter(t =>
+            t.title.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    const sortBy = sortSelect.value;
+
+    if (sortBy === 'name') {
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    return filtered;
+}
+
+// ---------------- PRICING ----------------
+function parsePrice(str) {
+    const m = str.match(/[\d.]+/);
+    return m ? parseFloat(m[0]) : 0;
+}
+
+function updatePricingSummary(toys) {
+
+    if (!toys.length) {
+        pricingSummary.style.display = 'none';
+        return;
+    }
+
+    let total = 0;
+
+    toys.forEach(t => {
+        const { price } = extractDescriptionParts(t.descriptionHtml);
+        total += parsePrice(price);
+    });
+
+    totalValueEl.textContent = `$${total.toFixed(2)}`;
+    averagePriceEl.textContent = `$${(total / toys.length).toFixed(2)}`;
+
+    pricingSummary.style.display = 'flex';
+}
+
+// ---------------- RENDER ----------------
+async function renderToys() {
+
     toyContainer.innerHTML = '<p>Loading inventory…</p>';
 
     try {
-        allToys = await loadToys('all');
 
+        allToys = await loadToys('all');
         currentFilteredToys = applyFiltersAndSort(allToys);
 
         currentRenderCount = Math.min(
-            getBatchSize(),
+            DEFAULT_BATCH_SIZE,
             currentFilteredToys.length
         );
 
         updatePricingSummary(currentFilteredToys);
-
         renderVisibleToys();
 
-    } catch (error) {
-        updateItemCount(0);
+    } catch (err) {
+
+        console.error(err);
         toyContainer.innerHTML =
-            `<p style="color:red;">${error.message}</p>`;
-        console.error(error);
+            `<p style="color:red;">${err.message}</p>`;
     }
 }
 
-        function saveUIState() {
-            localStorage.setItem(STORAGE_FILTER, filterSelect.value);
-            localStorage.setItem(STORAGE_SEARCH, searchInput.value);
-            localStorage.setItem(STORAGE_SORT, sortSelect.value);
-        }
+function renderVisibleToys() {
 
-        function restoreUIState() {
-            const savedFilter = localStorage.getItem(STORAGE_FILTER);
-            if (savedFilter && (savedFilter === 'all' || availableDates.includes(savedFilter))) {
-                filterSelect.value = savedFilter;
-            }
-            
-            const savedSearch = localStorage.getItem(STORAGE_SEARCH);
-            if (savedSearch) {
-                searchInput.value = savedSearch;
-            }
+    toyContainer.innerHTML = '';
 
-            const savedSort = localStorage.getItem(STORAGE_SORT);
-            if (savedSort) {
-                sortSelect.value = savedSort;
-            }
-        }
-
-        function restoreScrollPosition() {
-            const stored = localStorage.getItem(STORAGE_SCROLL);
-            if (!stored) return;
-            const y = Number(stored);
-            if (!Number.isNaN(y)) {
-                window.scrollTo(0, y);
-            }
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'd' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                if (window.InventoryDarkMode && typeof window.InventoryDarkMode.toggleDarkMode === 'function') {
-                    return;
-                }
-                fallbackToggle();
-            }
-        });
-loadMoreBtn.addEventListener('click', () => {
-    currentRenderCount = Math.min(
-        currentFilteredToys.length,
-        currentRenderCount + getBatchSize()
+    const visible = currentFilteredToys.slice(
+        0,
+        currentRenderCount
     );
 
-    renderVisibleToys();
-});
-
-let loadingMore = false;
-
-window.addEventListener('scroll', () => {
-    const nearBottom =
-        window.innerHeight + window.scrollY >=
-        document.documentElement.scrollHeight - 300;
-
-    if (
-        nearBottom &&
-        !loadingMore &&
-        currentRenderCount < currentFilteredToys.length
-    ) {
-        loadingMore = true;
-
-        currentRenderCount = Math.min(
-            currentFilteredToys.length,
-            currentRenderCount + getBatchSize()
-        );
-
-        renderVisibleToys();
-
-        setTimeout(() => {
-            loadingMore = false;
-        }, 100);
-    }
-});
-
-        filterSelect.addEventListener('change', () => {
-            saveUIState();
-            renderToys();
-            requestAnimationFrame(restoreScrollPosition);
-        });
-
-        searchInput.addEventListener('input', () => {
-            saveUIState();
-            renderToys();
-            requestAnimationFrame(restoreScrollPosition);
-        });
-
-        sortSelect.addEventListener('change', () => {
-            saveUIState();
-            renderToys();
-            requestAnimationFrame(restoreScrollPosition);
-        });
-
-        function renderVisibleToys() {
-            loadMoreBtn.style.display = 'none';
-    toyContainer.innerHTML = '';
-    const visibleToys = currentFilteredToys.slice(0, currentRenderCount);
-
-    if (visibleToys.length === 0) {
+    if (!visible.length) {
         toyContainer.innerHTML = '<p>No items found.</p>';
-        loadMoreBtn.style.display = 'none';
         return;
     }
 
-    visibleToys.forEach(toy =>
-        toyContainer.appendChild(createToyCard(toy))
-    );
-
-    updateItemCount(
-        Math.min(currentRenderCount, currentFilteredToys.length),
-        currentFilteredToys.length
-    );
+    visible.forEach(t => {
+        toyContainer.appendChild(createToyCard(t));
+    });
 
     if (currentRenderCount < currentFilteredToys.length) {
-        const remaining =
-            currentFilteredToys.length - currentRenderCount;
-
         loadMoreBtn.style.display = 'inline-block';
-        loadMoreBtn.textContent =
-            `Load ${Math.min(getBatchSize(), remaining)} more`;
     } else {
         loadMoreBtn.style.display = 'none';
     }
 }
-        </script>
+
+// ---------------- INIT ----------------
+document.addEventListener('DOMContentLoaded', async () => {
+
+    await populateDateFilter();
+    updateAuthUI();
+
+    if (isAdminAuthenticated()) {
+        restoreUIState();
+        await renderToys();
+        restoreScrollPosition();
+    }
+});
+
+// ---------------- UI STATE ----------------
+function restoreUIState() {
+
+    const f = localStorage.getItem(STORAGE_FILTER);
+    if (f) filterSelect.value = f;
+
+    const s = localStorage.getItem(STORAGE_SEARCH);
+    if (s) searchInput.value = s;
+
+    const so = localStorage.getItem(STORAGE_SORT);
+    if (so) sortSelect.value = so;
+}
+
+function restoreScrollPosition() {
+    const y = Number(localStorage.getItem(STORAGE_SCROLL));
+    if (!Number.isNaN(y)) window.scrollTo(0, y);
+}
+
+function saveScroll() {
+    localStorage.setItem(STORAGE_SCROLL, window.scrollY);
+}
+
+// ---------------- EVENTS ----------------
+window.addEventListener('scroll', () => {
+    if (scrollSaveTimeout) return;
+
+    scrollSaveTimeout = setTimeout(() => {
+        saveScroll();
+        scrollSaveTimeout = null;
+    }, 150);
+}, { passive: true });
+
+filterSelect.addEventListener('change', renderToys);
+searchInput.addEventListener('input', renderToys);
+sortSelect.addEventListener('change', renderToys);
+
+loadMoreBtn.addEventListener('click', () => {
+    currentRenderCount += DEFAULT_BATCH_SIZE;
+    renderVisibleToys();
+});
+
+</script>
 
     </body>
     <footer class="site-footer">

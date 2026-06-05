@@ -1,12 +1,5 @@
 const ShopPage = (function() {
-  const DATA_FILES = [
-    'inventory/data/5-27-26.json',
-    'inventory/data/5-28-26.json',
-    'inventory/data/5-29-26.json',
-    'inventory/data/5-30-26.json',
-    'inventory/data/6-1-26.json',
-      'inventory/data/6-4-26.json'
-  ];
+
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
@@ -14,6 +7,12 @@ const ShopPage = (function() {
   const imageViewer = document.getElementById('imageViewer');
   const imageViewerImg = document.getElementById('imageViewerImg');
   const imageViewerClose = document.getElementById('imageViewerClose');
+
+const SUPABASE_URL = 'https://ayigmbzistxzhjbncrru.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_UYAObNcDMg43hhlCKO0rEw_fhZTvjHE';
+
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const STORAGE_EXPANDED = 'shop-expanded-products';
   const DEFAULT_BATCH_SIZE = 12;
@@ -33,37 +32,6 @@ const ShopPage = (function() {
     return DEFAULT_BATCH_SIZE;
   }
 
-  function parsePrice(html) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html || '';
-    const priceLine = Array.from(wrapper.querySelectorAll('p'))
-      .map((p) => p.textContent || '')
-      .find((text) => /price\s*:/i.test(text));
-
-    if (!priceLine) {
-      return 0;
-    }
-
-    const match = priceLine.match(/\$([0-9]+(?:\.[0-9]{1,2})?)/);
-    return match ? Number(match[1]) : 0;
-  }
-
-  function extractDescriptions(html) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html || '';
-    const descriptions = { en: '', fr: '' };
-
-    wrapper.querySelectorAll('p').forEach((p) => {
-      const text = p.textContent || '';
-      if (/description\s*\(en\)/i.test(text)) {
-        descriptions.en = text.replace(/description\s*\(en\)\s*:/i, '').trim();
-      } else if (/description\s*\(fr\)/i.test(text)) {
-        descriptions.fr = text.replace(/description\s*\(fr\)\s*:/i, '').trim();
-      }
-    });
-
-    return descriptions;
-  }
 
   // Function to determine console from title
   function getConsoleFromTitle(title) {
@@ -135,36 +103,37 @@ function createConsoleFilter(consoles) {
 }
 
 
-  function normalizeProducts(items) {
-    function resolveImagePath(src) {
-      if (!src) return 'favicon.ico';
-      if (src.startsWith('http') || src.startsWith('/')) return src;
-      return `inventory/${src}`;
-    }
-
-    return items.map((item, idx) => {
-      const descriptions = extractDescriptions(item.descriptionHtml);
-      const price = parsePrice(item.descriptionHtml);
-      const images = Array.isArray(item.images) && item.images.length > 0
-        ? item.images.map((img) => ({
-            src: resolveImagePath(img.src),
-            alt: img.alt || item.title || 'Retro product'
-          }))
-        : [{ src: 'favicon.ico', alt: item.title || 'Retro product' }];
-
-      return {
-        id: `product-${idx}-${item.date}`,
-        title: item.title || 'Vintage item',
-        images,
-        price,
-        details: descriptions,
-        date: item.date || '',
-        source: item.date || 'retro',
-        category: item.category || 'toys', // Add this line - default to 'toys' if not specified
-        element: null
-      };
-    });
+function normalizeProducts(items) {
+  function resolveImagePath(src) {
+    if (!src) return 'favicon.ico';
+    if (src.startsWith('http') || src.startsWith('/')) return src;
+    return `inventory/${src}`;
   }
+
+  return items.map((item, idx) => {
+    const images = Array.isArray(item.images) && item.images.length > 0
+      ? item.images.map((img) => ({
+          src: resolveImagePath(img.src),
+          alt: img.alt || item.title || 'Retro product'
+        }))
+      : [{ src: 'favicon.ico', alt: item.title || 'Retro product' }];
+
+    return {
+      id: String(item.id ?? `product-${idx}`),
+      title: item.title || 'Vintage item',
+      images,
+      price: Number(item.price ?? 0),
+      details: {
+        en: item.description_en || '',
+        fr: item.description_fr || ''
+      },
+      date: item.date || '',
+      source: item.date || 'retro',
+      category: item.category || 'toys',
+      element: null
+    };
+  });
+}
 
   function ensureCardElement(product) {
     if (!product.element) {
@@ -187,12 +156,25 @@ function createConsoleFilter(consoles) {
     });
   }
 
-  function loadData() {
-    return Promise.all(DATA_FILES.map((path) => fetch(path).then((res) => {
-      if (!res.ok) throw new Error(`Failed to load ${path}`);
-      return res.json();
-    })));
+async function loadData(category, search) {
+  let query = supabaseClient
+    .from('inventory')
+    .select('id, title, price, description_en, description_fr, images, category, date');
+
+  if (category && category !== 'all') {
+    query = query.eq('category', category);
   }
+
+  if (search) {
+    query = query.ilike('title', `%${search}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw new Error(error.message);
+
+  return data;
+}
 
   function getFilterText() {
     return (searchInput && searchInput.value || '').trim().toLowerCase();
@@ -362,21 +344,26 @@ function createConsoleFilter(consoles) {
   }
 
   function toggleProductExpanded(id) {
-    const product = findProductById(id);
-    if (!product) return;
+  id = String(id);
 
-    if (expanded.has(id)) {
-      expanded.delete(id);
-    } else {
-      expanded.add(id);
-    }
-    localStorage.setItem(STORAGE_EXPANDED, JSON.stringify(Array.from(expanded)));
-    updateCardExpanded(product);
+  const product = findProductById(id);
+  if (!product) return;
+
+  if (expanded.has(id)) {
+    expanded.delete(id);
+  } else {
+    expanded.add(id);
   }
+
+  localStorage.setItem(STORAGE_EXPANDED, JSON.stringify(Array.from(expanded)));
+
+  updateCardExpanded(product);
+}
 
   function findProductById(id) {
-    return products.find((product) => product.id === id);
-  }
+  id = String(id);
+  return products.find((product) => String(product.id) === id);
+}
 
   function showImageViewer(src, alt) {
     if (!imageViewer || !imageViewerImg) return;
