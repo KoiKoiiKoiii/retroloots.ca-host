@@ -205,9 +205,12 @@ window.toggleSold = toggleSold;
 
 async function toggleSold(id, current) {
   await fetch("/.netlify/functions/inventory-toggle-sold", {
-    method: "POST",
-    body: JSON.stringify({ id, current })
-  });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({ id, sold: !current })
+});
 
   await loadData();
 }
