@@ -115,6 +115,10 @@
 </div>
 
 <script>
+  
+
+let inventory = [];
+let orders = [];
 async function loadData() {
   const [invRes, ordRes] = await Promise.all([
     fetch("/.netlify/functions/inventory-get"),
@@ -128,9 +132,6 @@ async function loadData() {
   renderInventory();
   renderOrders();
 }
-
-let inventory = [];
-let orders = [];
 
 function renderStats() {
   const sold = inventory.filter(i => i.sold).length;
