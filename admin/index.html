@@ -132,20 +132,6 @@ async function loadData() {
 let inventory = [];
 let orders = [];
 
-async function loadData() {
-  const [{ data: inv }, { data: ord }] = await Promise.all([
-    sb.from("inventory").select("*"),
-    sb.from("orders").select("*")
-  ]);
-
-  inventory = inv || [];
-  orders = ord || [];
-
-  renderStats();
-  renderInventory();
-  renderOrders();
-}
-
 function renderStats() {
   const sold = inventory.filter(i => i.sold).length;
   const active = inventory.filter(i => !i.sold).length;
