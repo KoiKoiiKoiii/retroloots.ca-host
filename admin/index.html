@@ -274,6 +274,7 @@
     }
 
     function authHeaders() {
+      console.log("AUTH HEADER:", event.headers.authorization);
       return {
         "Authorization": `Bearer ${getToken()}`,
         "Content-Type": "application/json"
