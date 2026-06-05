@@ -38,8 +38,8 @@ function verifyAdminToken(token) {
 
     const [encodedPayload, signature] = token.split(".");
     const expected = sign(encodedPayload);
-    const signatureBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expected);
+    const signatureBuffer = Buffer.from(signature, "base64url");
+    const expectedBuffer = Buffer.from(expected, "base64url");
 
     if (
       signatureBuffer.length !== expectedBuffer.length ||
