@@ -1,4 +1,5 @@
 const ShopPage = (function() {
+  const SUPABASE_BASE_URL =  'https://ayigmbzistxzhjbncrru.supabase.co/storage/v1/object/public/images/';
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
@@ -110,11 +111,17 @@ const ShopPage = (function() {
   }
 
   function normalizeProducts(items) {
-    function resolveImagePath(src) {
-      if (!src) return 'favicon.ico';
-      if (src.startsWith('http') || src.startsWith('/')) return src;
-      return `inventory/${src}`;
-    }
+function resolveImagePath(src) {
+  if (!src) return 'favicon.ico';
+
+  if (src.startsWith('http')) return src;
+
+  src = src.replace(/^\/+/, '');
+
+  src = src.replace(/^images\//, '');
+
+  return `${SUPABASE_BASE_URL}${src}`;
+}
 
     return items.map((item, idx) => {
       const images = Array.isArray(item.images) && item.images.length > 0
