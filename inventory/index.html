@@ -131,8 +131,15 @@ async function loadData() {
   renderOrders();
 }
 
-const sb = window.supabaseClient;
-
+  window.env = {
+    SUPABASE_URL: "{{SUPABASE_URL}}",
+    SUPABASE_ANON_KEY: "{{SUPABASE_ANON_KEY}}"
+  };
+  
+const sb = window.supabase.createClient(
+  window.env.SUPABASE_URL,
+  window.env.SUPABASE_ANON_KEY
+);
 // ---------------- DOM ----------------
 const toyContainer = document.getElementById('toyContainer');
 const filterSelect = document.getElementById('dateFilter');

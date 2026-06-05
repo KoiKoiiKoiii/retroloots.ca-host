@@ -55,6 +55,106 @@
     .unsold {
       color: #ff4d4d;
     }
+
+    .admin-toolbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .admin-toolbar label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .admin-toolbar input,
+    .admin-toolbar select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #101010;
+      color: #fff;
+    }
+
+    .admin-count {
+      padding-bottom: 8px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .admin-thumb-list {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .admin-thumb {
+      width: 48px;
+      height: 48px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 0;
+      overflow: hidden;
+      background: #090909;
+    }
+
+    .admin-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .admin-image-viewer {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.86);
+      z-index: 10000;
+      padding: 20px;
+    }
+
+    .admin-image-viewer.open {
+      display: flex;
+    }
+
+    .admin-image-viewer img {
+      max-width: min(100%, 980px);
+      max-height: 86vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .admin-image-viewer button {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      border: 0;
+      border-radius: 999px;
+      width: 40px;
+      height: 40px;
+      background: #fff;
+      color: #111;
+      font-size: 22px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-toolbar {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -103,11 +203,44 @@
 
     <div class="card" style="grid-column: 1 / -1;">
       <h3>Inventory</h3>
-      <input id="search" placeholder="Search items..." style="margin-bottom:10px; width:100%; padding:8px;">
+      <div class="admin-toolbar">
+        <div>
+          <label for="dateFilter">Date</label>
+          <select id="dateFilter" aria-label="Filter inventory by date">
+            <option value="all">All Dates</option>
+          </select>
+        </div>
+        <div>
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter" aria-label="Filter inventory by status">
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="sold">Sold</option>
+          </select>
+        </div>
+        <div>
+          <label for="search">Search</label>
+          <input id="search" placeholder="Search items..." type="search">
+        </div>
+        <div>
+          <label for="sortSelect">Sort</label>
+          <select id="sortSelect" aria-label="Sort inventory">
+            <option value="date-desc">Date Added</option>
+            <option value="date-asc">Date Oldest</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="price-asc">Price (Low-High)</option>
+            <option value="price-desc">Price (High-Low)</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+        <span id="itemCount" class="admin-count">(0 items)</span>
+      </div>
       <table>
         <thead>
           <tr>
+            <th>Images</th>
             <th>Title</th>
+            <th>Date</th>
             <th>Price</th>
             <th>Status</th>
             <th>Actions</th>
@@ -118,9 +251,23 @@
     </div>
   </div>
 
+  <div id="imageViewer" class="admin-image-viewer" aria-hidden="true">
+    <button id="imageViewerClose" type="button" aria-label="Close image">&times;</button>
+    <img id="imageViewerImg" alt="">
+  </div>
+
   <script type="module">
     let inventory = [];
     let orders = [];
+
+    const dateFilter = document.getElementById("dateFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const searchInput = document.getElementById("search");
+    const sortSelect = document.getElementById("sortSelect");
+    const itemCount = document.getElementById("itemCount");
+    const imageViewer = document.getElementById("imageViewer");
+    const imageViewerImg = document.getElementById("imageViewerImg");
+    const imageViewerClose = document.getElementById("imageViewerClose");
 
     function getToken() {
       return sessionStorage.getItem("adminToken") || "";
@@ -164,6 +311,7 @@
       inventory = Array.isArray(inventoryData) ? inventoryData : [];
       orders = Array.isArray(ordersData) ? ordersData : [];
 
+      populateDateFilter();
       renderStats();
       renderInventory();
       renderOrders();
@@ -196,22 +344,117 @@
       });
     }
 
+    function populateDateFilter() {
+      const current = dateFilter.value;
+      const dates = [...new Set(inventory.map((item) => item.date).filter(Boolean))].sort().reverse();
+
+      dateFilter.replaceChildren();
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = "All Dates";
+      dateFilter.appendChild(allOption);
+
+      dates.forEach((date) => {
+        const option = document.createElement("option");
+        option.value = date;
+        option.textContent = date;
+        dateFilter.appendChild(option);
+      });
+
+      dateFilter.value = dates.includes(current) ? current : "all";
+    }
+
+    function getImageSrc(image) {
+      const src = image && image.src ? String(image.src) : "";
+      if (!src) return "";
+      if (src.startsWith("http") || src.startsWith("/")) return src;
+      return `../inventory/${src}`;
+    }
+
+    function getFilteredInventory() {
+      const search = searchInput.value.trim().toLowerCase();
+      const selectedDate = dateFilter.value;
+      const selectedStatus = statusFilter.value;
+      const sort = sortSelect.value;
+
+      const filtered = inventory.filter((item) => {
+        const matchesSearch = !search || String(item.title || "").toLowerCase().includes(search);
+        const matchesDate = selectedDate === "all" || item.date === selectedDate;
+        const matchesStatus =
+          selectedStatus === "all" ||
+          (selectedStatus === "sold" && item.sold) ||
+          (selectedStatus === "active" && !item.sold);
+
+        return matchesSearch && matchesDate && matchesStatus;
+      });
+
+      filtered.sort((a, b) => {
+        if (sort === "name") return String(a.title || "").localeCompare(String(b.title || ""));
+        if (sort === "price-asc") return Number(a.price || 0) - Number(b.price || 0);
+        if (sort === "price-desc") return Number(b.price || 0) - Number(a.price || 0);
+        if (sort === "status") return Number(a.sold) - Number(b.sold) || String(a.title || "").localeCompare(String(b.title || ""));
+        if (sort === "date-asc") return String(a.created_at || a.date || "").localeCompare(String(b.created_at || b.date || ""));
+        return String(b.created_at || b.date || "").localeCompare(String(a.created_at || a.date || ""));
+      });
+
+      return filtered;
+    }
+
+    function showImage(src, alt) {
+      imageViewerImg.src = src;
+      imageViewerImg.alt = alt || "";
+      imageViewer.classList.add("open");
+      imageViewer.setAttribute("aria-hidden", "false");
+    }
+
+    function hideImage() {
+      imageViewer.classList.remove("open");
+      imageViewer.setAttribute("aria-hidden", "true");
+      imageViewerImg.src = "";
+    }
+
     function renderInventory() {
       const el = document.getElementById("inventoryTable");
-      const search = document.getElementById("search").value.toLowerCase();
       el.replaceChildren();
+      const filtered = getFilteredInventory();
+      itemCount.textContent = `(${filtered.length} ${filtered.length === 1 ? "item" : "items"})`;
 
-      inventory
-        .filter((item) => String(item.title || "").toLowerCase().includes(search))
+      filtered
         .forEach((item) => {
           const row = document.createElement("tr");
+          const images = document.createElement("td");
           const title = document.createElement("td");
+          const date = document.createElement("td");
           const price = document.createElement("td");
           const status = document.createElement("td");
           const actions = document.createElement("td");
           const toggle = document.createElement("button");
+          const imageList = document.createElement("div");
 
+          imageList.className = "admin-thumb-list";
+          (Array.isArray(item.images) ? item.images : []).slice(0, 3).forEach((image) => {
+            const src = getImageSrc(image);
+            if (!src) return;
+
+            const button = document.createElement("button");
+            const img = document.createElement("img");
+
+            button.type = "button";
+            button.className = "admin-thumb";
+            button.title = "View image";
+            button.addEventListener("click", () => showImage(src, image.alt || item.title || ""));
+
+            img.src = src;
+            img.alt = image.alt || item.title || "Inventory image";
+            img.loading = "lazy";
+
+            button.appendChild(img);
+            imageList.appendChild(button);
+          });
+
+          images.appendChild(imageList);
           title.textContent = item.title || "";
+          date.textContent = item.date || "";
           price.textContent = `$${Number(item.price || 0).toFixed(2)}`;
           status.className = item.sold ? "sold" : "unsold";
           status.textContent = item.sold ? "SOLD" : "ACTIVE";
@@ -221,7 +464,7 @@
           toggle.addEventListener("click", () => toggleSold(item.id));
           actions.appendChild(toggle);
 
-          row.append(title, price, status, actions);
+          row.append(images, title, date, price, status, actions);
           el.appendChild(row);
         });
     }
@@ -270,7 +513,17 @@
       location.reload();
     };
 
-    document.getElementById("search").addEventListener("input", renderInventory);
+    dateFilter.addEventListener("change", renderInventory);
+    statusFilter.addEventListener("change", renderInventory);
+    searchInput.addEventListener("input", renderInventory);
+    sortSelect.addEventListener("change", renderInventory);
+    imageViewerClose.addEventListener("click", hideImage);
+    imageViewer.addEventListener("click", (event) => {
+      if (event.target === imageViewer) hideImage();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideImage();
+    });
 
     if (!getToken()) {
       document.getElementById("loginBox").style.display = "flex";
