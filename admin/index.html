@@ -203,21 +203,22 @@ function renderInventory() {
 
 window.toggleSold = toggleSold;
 
-async function toggleSold(id, current) {
-  console.log("TOGGLE CLICKED", id);
-  alert("clicked " + id);
-  await fetch("/.netlify/functions/inventory-toggle-sold", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ id })
-});
+window.toggleSold = async function(id, current) {
+  console.log("FUNCTION ENTERED", id);
 
-  await loadData();
-}
-document.getElementById("search").addEventListener("input", renderInventory);
+  const res = await fetch("/.netlify/functions/inventory-toggle-sold", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id })
+  });
 
+  console.log("FETCH SENT");
+
+  const text = await res.text();
+  console.log("RAW RESPONSE:", text);
+};
 async function login() {
   const username = document.getElementById("username").value;
   const password = document.getElementById("password").value;
