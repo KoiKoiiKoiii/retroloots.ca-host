@@ -1,23 +1,25 @@
-const supabase = require("./_supabase");
+const { id } = JSON.parse(event.body);
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method not allowed" };
-  }
+const { data, error } = await supabase
+  .from("inventory")
+  .select("sold")
+  .eq("id", id)
+  .single();
 
-  const { id, current } = JSON.parse(event.body);
+if (error) {
+  return { statusCode: 500, body: error.message };
+}
 
-  const { error } = await supabase
-    .from("inventory")
-    .update({ sold: !current })
-    .eq("id", id);
+const { error: updateError } = await supabase
+  .from("inventory")
+  .update({ sold: !data.sold })
+  .eq("id", id);
 
-  if (error) {
-    return { statusCode: 500, body: error.message };
-  }
+if (updateError) {
+  return { statusCode: 500, body: updateError.message };
+}
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ success: true })
-  };
+return {
+  statusCode: 200,
+  body: JSON.stringify({ success: true })
 };
