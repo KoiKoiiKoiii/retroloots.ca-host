@@ -204,6 +204,8 @@ function renderInventory() {
 window.toggleSold = toggleSold;
 
 async function toggleSold(id, current) {
+  console.log("TOGGLE CLICKED", id);
+  alert("clicked " + id);
   await fetch("/.netlify/functions/inventory-toggle-sold", {
   method: "POST",
   headers: {
