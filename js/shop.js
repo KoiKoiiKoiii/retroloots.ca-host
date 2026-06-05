@@ -8,8 +8,8 @@ const ShopPage = (function() {
   const imageViewerImg = document.getElementById('imageViewerImg');
   const imageViewerClose = document.getElementById('imageViewerClose');
 
-const SUPABASE_URL = 'https://ayigmbzistxzhjbncrru.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_UYAObNcDMg43hhlCKO0rEw_fhZTvjHE';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
