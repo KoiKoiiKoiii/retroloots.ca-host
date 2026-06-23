@@ -1,71 +1,51 @@
 const ShopPage = (function() {
   const shopGrid = document.getElementById('shopGrid');
   const searchInput = document.getElementById('searchInput');
+  const pagination = document.getElementById("pagination");
   const sortSelect = document.getElementById('sortSelect');
-  const loadMoreBtn = document.getElementById('loadMoreBtn');
   const imageViewer = document.getElementById('imageViewer');
   const imageViewerImg = document.getElementById('imageViewerImg');
   const imageViewerClose = document.getElementById('imageViewerClose');
-
   const STORAGE_EXPANDED = 'shop-expanded-products';
-  const DEFAULT_BATCH_SIZE = 12;
 
+  const PAGE_SIZE = 12;
+
+  let currentPage = 1;
+  let totalPages = 1;
   let products = [];
-  let currentFilteredProducts = [];
-  let currentRenderCount = 0;
-  let expanded = new Set(JSON.parse(localStorage.getItem(STORAGE_EXPANDED) || '[]'));
-  let selectedConsole = 'all';
+function getExpandedId() {
+  return new URLSearchParams(window.location.search).get('product');
+}  
+let selectedConsole = 'all';
 
   const consoleFilterContainer = document.createElement('div');
   consoleFilterContainer.className = 'console-filter-container';
-  consoleFilterContainer.style.cssText = 'display: none; margin: 10px 0; padding: 12px; background: var(--filter-bg); border-radius: 8px; border: 1px solid var(--border-color);';
+  consoleFilterContainer.style.cssText = 'display: none; margin: 10px auto; padding: 12px; background: var(--filter-bg); border-radius: 8px; border: 1px solid var(--border-color);';
 
-  async function loadData() {
-    const response = await fetch('/.netlify/functions/inventory-get');
-    if (!response.ok) {
-      throw new Error('Unable to load inventory');
-    }
+async function loadData() {
+  const category = getSelectedCategory();
 
-    return response.json();
-  }
+  const params = new URLSearchParams({
+    page: currentPage,
+    limit: PAGE_SIZE,
+    search: getFilterText(),
+    sort: getSortKey(),
+    ...(category ? { category } : {}), // 🔥 FIX
+    ...(selectedConsole !== 'all' && { console: selectedConsole })
+  });
 
-  function getBatchSize() {
-    return DEFAULT_BATCH_SIZE;
-  }
+  const response = await fetch('/.netlify/functions/inventory-get?' + params);
 
-  function getConsoleFromTitle(title) {
-    const titleLower = String(title || '').toLowerCase();
-    if (titleLower.includes('xbox one') || titleLower.includes('xbox series')) return 'Xbox One/Series';
-    if (titleLower.includes('xbox 360')) return 'Xbox 360';
-    if (titleLower.includes('xbox')) return 'Xbox';
-    if (titleLower.includes('playstation 5') || titleLower.includes('ps5')) return 'PlayStation 5';
-    if (titleLower.includes('playstation 4') || titleLower.includes('ps4')) return 'PlayStation 4';
-    if (titleLower.includes('playstation 3') || titleLower.includes('ps3')) return 'PlayStation 3';
-    if (titleLower.includes('playstation 2') || titleLower.includes('ps2')) return 'PlayStation 2';
-    if (titleLower.includes('playstation') || titleLower.includes('ps1')) return 'PlayStation';
-    if (titleLower.includes('wii u')) return 'Wii U';
-    if (titleLower.includes('wii')) return 'Wii';
-    if (titleLower.includes('gamecube') || titleLower.includes('game cube')) return 'GameCube';
-    if (titleLower.includes('nintendo switch') || titleLower.includes('switch')) return 'Nintendo Switch';
-    if (titleLower.includes('3ds')) return 'Nintendo 3DS';
-    if (titleLower.includes('ds')) return 'Nintendo DS';
-    if (titleLower.includes('nintendo 64') || titleLower.includes('n64')) return 'Nintendo 64';
-    if (titleLower.includes('super nintendo') || titleLower.includes('snes')) return 'Super Nintendo';
-    if (titleLower.includes('nes')) return 'Nintendo Entertainment System';
-    if (titleLower.includes('game boy')) return 'Game Boy';
-    if (titleLower.includes('psp') || titleLower.includes('umd')) return 'PSP';
-    return 'Other';
-  }
+  if (!response.ok) throw new Error('Unable to load inventory');
 
-  function getUniqueConsoles(items) {
-    const consoles = new Set();
-    items.forEach((product) => {
-      if (product.category === 'video-games') {
-        consoles.add(getConsoleFromTitle(product.title));
-      }
-    });
-    return Array.from(consoles).sort();
-  }
+  return response.json();
+}
+
+async function loadConsoles() {
+  const res = await fetch('/.netlify/functions/inventory-facets');
+  const data = await res.json();
+  return data.consoles || [];
+}
 
   function createConsoleFilter(consoles) {
     const wrapper = document.createElement('div');
@@ -96,8 +76,7 @@ const ShopPage = (function() {
     select.value = selectedConsole;
     select.addEventListener('change', (event) => {
       selectedConsole = event.target.value;
-      currentRenderCount = DEFAULT_BATCH_SIZE;
-      renderProducts();
+      loadPage(1);
     });
 
     wrapper.append(label, select);
@@ -142,6 +121,7 @@ function resolveImagePath(src) {
         date: item.date || '',
         source: item.date || 'retro',
         category: item.category || 'toys',
+        subcategory: item.subcategory || null,
         element: null
       };
     });
@@ -154,14 +134,34 @@ function resolveImagePath(src) {
     return product.element;
   }
 
+
+  async function resolveProductPage(productId) {
+  const res = await fetch(`/.netlify/functions/inventory-get?limit=1&product=${productId}`);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+
+  // If backend supports direct lookup, return page info
+  return data.page || null;
+}
+
+function findProductInCurrentPage(id) {
+  return products.find(p => String(p.id) === String(id));
+}
   function updateCardExpanded(product) {
     const previous = product.element;
     product.element = createCard(product);
     if (previous && previous.parentNode) {
       previous.parentNode.replaceChild(product.element, previous);
     }
+      requestAnimationFrame(() => {
+    product.element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  });
   }
-
+  
   function clearCardCache() {
     products.forEach((product) => {
       product.element = null;
@@ -180,37 +180,6 @@ function resolveImagePath(src) {
     return new URLSearchParams(window.location.search).get('category');
   }
 
-  function applyFiltersAndSort(items) {
-    const selectedCategory = getSelectedCategory();
-    let filtered = items.slice();
-
-    if (selectedCategory && selectedCategory !== 'all') {
-      filtered = filtered.filter((item) => item.category === selectedCategory);
-    }
-
-    if (selectedCategory === 'video-games' && selectedConsole !== 'all') {
-      filtered = filtered.filter((item) => getConsoleFromTitle(item.title) === selectedConsole);
-    }
-
-    const filter = getFilterText();
-    if (filter) {
-      filtered = filtered.filter((item) => {
-        const text = `${item.title} ${item.details.en} ${item.details.fr}`.toLowerCase();
-        return text.includes(filter);
-      });
-    }
-
-    const key = getSortKey();
-    if (key === 'price-asc') {
-      filtered.sort((a, b) => a.price - b.price);
-    } else if (key === 'price-desc') {
-      filtered.sort((a, b) => b.price - a.price);
-    } else if (key === 'name') {
-      filtered.sort((a, b) => a.title.localeCompare(b.title));
-    }
-
-    return filtered;
-  }
 
   function createGallery(product) {
     const gallery = document.createElement('div');
@@ -234,8 +203,8 @@ function resolveImagePath(src) {
   }
 
   function createCard(product) {
-    const isExpanded = expanded.has(product.id);
-    const lang = window.SiteLocale ? window.SiteLocale.getLang() : 'en';
+    const isExpanded = String(getExpandedId()) === String(product.id);
+        const lang = window.SiteLocale ? window.SiteLocale.getLang() : 'en';
     const descriptionText = product.details[lang] || product.details.en || '';
     const formattedPrice = window.SiteLocale ? window.SiteLocale.formatCurrency(product.price) : `$${product.price.toFixed(2)}`;
     const toggleText = window.SiteLocale
@@ -332,65 +301,125 @@ function resolveImagePath(src) {
 
     return card;
   }
+function getInitialProductFromURL() {
+  return new URLSearchParams(window.location.search).get('product');
+}
+function renderProducts() {
+  shopGrid.replaceChildren();
 
-  function renderVisibleProducts() {
-    if (!shopGrid) return;
-    shopGrid.replaceChildren();
+  const fragment = document.createDocumentFragment();
 
-    const visible = currentFilteredProducts.slice(0, currentRenderCount);
-    if (!visible.length) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = window.SiteLocale ? window.SiteLocale.translate('searchPlaceholder') : 'No products found.';
-      shopGrid.appendChild(empty);
-      if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-      return;
+  products.forEach(product => {
+    fragment.appendChild(ensureCardElement(product));
+  });
+
+  shopGrid.appendChild(fragment);
+
+  syncAccordionFromURL(); // 🔥 IMPORTANT
+
+  renderPagination();
+}
+let lastLoadedPage = 1;
+
+async function loadPage(page = 1, { preserveScroll = false } = {}) {
+  currentPage = page;
+
+  const result = await loadData();
+  let items = normalizeProducts(result.products || []);
+  products = items;
+  totalPages = Math.ceil(result.total / PAGE_SIZE);
+
+  renderProducts();
+
+  if (!preserveScroll) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  lastLoadedPage = page;
+}
+
+function renderPagination() {
+  if (!pagination) return;
+  pagination.innerHTML = '';
+
+  if (totalPages <= 1) return;
+
+  // ---------------- Prev ----------------
+  const prev = document.createElement('button');
+  prev.textContent = "<";
+  prev.className = 'pagination-btn pagination-nav';
+  prev.disabled = currentPage === 1;
+  prev.addEventListener('click', () => loadPage(currentPage - 1));
+  pagination.appendChild(prev);
+
+  // ---------------- Page window ----------------
+  const maxVisible = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+  if (endPage - startPage < maxVisible - 1) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    const pageBtn = document.createElement('button');
+    pageBtn.textContent = String(i);
+
+    pageBtn.className = 'pagination-btn';
+
+    if (i === currentPage) {
+      pageBtn.classList.add('active');
+      pageBtn.disabled = true;
+    } else {
+      pageBtn.addEventListener('click', () => loadPage(i));
     }
 
-    const fragment = document.createDocumentFragment();
-    visible.forEach((product) => {
-      fragment.appendChild(ensureCardElement(product));
-    });
-    shopGrid.appendChild(fragment);
+    pagination.appendChild(pageBtn);
+  }
 
-    if (loadMoreBtn) {
-      if (currentRenderCount < currentFilteredProducts.length) {
-        loadMoreBtn.style.display = 'inline-flex';
-        loadMoreBtn.textContent = `Load ${Math.min(getBatchSize(), currentFilteredProducts.length - currentRenderCount)} more`;
-      } else {
-        loadMoreBtn.style.display = 'none';
+  // ---------------- Next ----------------
+  const next = document.createElement('button');
+  next.textContent = ">";
+  next.className = 'pagination-btn pagination-nav';
+  next.disabled = currentPage === totalPages;
+  next.addEventListener('click', () => loadPage(currentPage + 1));
+  pagination.appendChild(next);
+}
+
+
+function toggleProductExpanded(id) {
+  const url = new URL(window.location);
+  const current = url.searchParams.get('product');
+
+  if (current === id) {
+    url.searchParams.delete('product');
+  } else {
+    url.searchParams.set('product', id);
+  }
+
+  history.pushState({}, '', url);
+
+  syncAccordionFromURL();
+}
+
+function syncAccordionFromURL() {
+  const expandedId = getExpandedId();
+
+  products.forEach((product) => {
+    const shouldBeExpanded = String(product.id) === String(expandedId);
+    const isExpanded = product.element?.classList.contains('expanded');
+
+    if (shouldBeExpanded !== isExpanded) {
+      const newCard = createCard(product);
+
+      if (product.element?.parentNode) {
+        product.element.replaceWith(newCard);
       }
+
+      product.element = newCard;
     }
-  }
-
-  function renderProducts() {
-    currentFilteredProducts = applyFiltersAndSort(products);
-    currentRenderCount = Math.min(getBatchSize(), currentFilteredProducts.length);
-    renderVisibleProducts();
-
-    if (getSelectedCategory() === 'video-games') {
-      createConsoleFilter(getUniqueConsoles(products));
-      consoleFilterContainer.style.display = 'block';
-    } else {
-      consoleFilterContainer.style.display = 'none';
-      selectedConsole = 'all';
-    }
-  }
-
-  function toggleProductExpanded(id) {
-    const product = products.find((item) => String(item.id) === String(id));
-    if (!product) return;
-
-    if (expanded.has(product.id)) {
-      expanded.delete(product.id);
-    } else {
-      expanded.add(product.id);
-    }
-
-    localStorage.setItem(STORAGE_EXPANDED, JSON.stringify(Array.from(expanded)));
-    updateCardExpanded(product);
-  }
-
+  });
+}
   function showImageViewer(src, alt) {
     if (!imageViewer || !imageViewerImg) return;
     imageViewerImg.src = src;
@@ -406,6 +435,14 @@ function resolveImagePath(src) {
     imageViewerImg.src = '';
   }
 
+  function getScrollAnchor() {
+  return window.scrollY;
+}
+function restoreScrollAnchor(y) {
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: y, behavior: 'auto' });
+  });
+}
   function handleShopClick(event) {
     const galleryImage = event.target.closest('.product-gallery-item img');
     if (galleryImage) {
@@ -443,27 +480,20 @@ function resolveImagePath(src) {
 
     if (searchInput) {
       searchInput.addEventListener('input', debounce(() => {
-        currentRenderCount = DEFAULT_BATCH_SIZE;
-        renderProducts();
+        loadPage(1);
       }, 180));
     }
-
+window.addEventListener('popstate', () => {
+  syncAccordionFromURL();
+});
     if (sortSelect) {
       sortSelect.addEventListener('change', () => {
-        currentRenderCount = DEFAULT_BATCH_SIZE;
-        renderProducts();
+        loadPage(1);
       });
     }
 
     if (shopGrid) {
       shopGrid.addEventListener('click', handleShopClick);
-    }
-
-    if (loadMoreBtn) {
-      loadMoreBtn.addEventListener('click', () => {
-        currentRenderCount = Math.min(currentFilteredProducts.length, currentRenderCount + getBatchSize());
-        renderVisibleProducts();
-      });
     }
 
     if (imageViewer) {
@@ -478,26 +508,48 @@ function resolveImagePath(src) {
       imageViewerClose.addEventListener('click', hideImageViewer);
     }
 
-    window.addEventListener('beforeunload', () => {
-      expanded.clear();
-      localStorage.removeItem(STORAGE_EXPANDED);
-    });
-
     window.addEventListener('pageshow', (event) => {
       if (event.persisted) {
         expanded.clear();
         localStorage.removeItem(STORAGE_EXPANDED);
-        renderProducts();
+        loadPage(1);
       }
     });
 
     if (window.SiteLocale) {
       window.SiteLocale.onChange(() => {
         clearCardCache();
-        renderProducts();
+        loadPage(1);
       });
     }
   }
+
+async function ensureProductIsVisible(productId) {
+  let page = 1;
+  let found = null;
+
+  while (page <= totalPages) {
+    await loadPage(page, { preserveScroll: true });
+
+    found = findProductInCurrentPage(productId);
+
+    if (found) break;
+
+    page++;
+  }
+
+  if (found) {
+    history.replaceState({}, '', `?product=${productId}`);
+    syncAccordionFromURL();
+
+    requestAnimationFrame(() => {
+      found.element?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    });
+  }
+}
 
   function highlightActiveCategory() {
     const selectedCategory = getSelectedCategory();
@@ -521,17 +573,27 @@ function resolveImagePath(src) {
     if (!shopGrid) return;
 
     try {
-      products = normalizeProducts(await loadData());
-      currentFilteredProducts = applyFiltersAndSort(products);
-      currentRenderCount = Math.min(getBatchSize(), currentFilteredProducts.length);
-      renderVisibleProducts();
       attachEvents();
       highlightActiveCategory();
 
       if (getSelectedCategory() === 'video-games') {
-        createConsoleFilter(getUniqueConsoles(products));
-        consoleFilterContainer.style.display = 'block';
+        loadConsoles()
+        .then((consoles) => {
+        if (consoles.length > 0) {
+          createConsoleFilter(consoles);
+          consoleFilterContainer.style.display = 'block';
+        }
+      })
+        .catch(console.error);
       }
+
+    const initialProduct = getExpandedId();
+
+await loadPage(1, { preserveScroll: true });
+
+if (initialProduct) {
+  await ensureProductIsVisible(initialProduct);
+}
     } catch (error) {
       const errorEl = document.createElement('div');
       errorEl.className = 'error-state';

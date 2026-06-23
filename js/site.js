@@ -116,7 +116,7 @@ const SiteLocale = (function() {
       navInventory: 'Inventaire',
       heroEyebrow: 'QG des collectionneurs',
       heroHeading: 'Trouvailles rares pour collectionneurs, expédiées depuis le Québec.',
-      heroSubheading: 'Funko Pop exclusives, jeux vintage, cartes et collectibles sélectionnés avec soin pour l’état et l’expédition.',
+      heroSubheading: 'Funko Pop exclusifs, jeux vintage, cartes et collectibles sélectionnés avec soin pour l’état et l’expédition.',
       heroShopCta: 'Explorer la boutique',
       heroInventoryCta: 'Voir l’inventaire',
       heroBanner: 'Livraison rapide Canada / USA. Emballage renforcé. Inventaire sélectionné.',

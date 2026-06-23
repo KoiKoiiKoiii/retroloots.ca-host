@@ -11,6 +11,8 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@supabase/supabase-js@^2.107.0",
+        "npm:nodemailer@^6.9.14",
         "npm:stripe@12"
       ]
     }

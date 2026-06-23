@@ -60,7 +60,7 @@ exports.handler = async function(event, context) {
 
     const mailOptions = {
       from: process.env.GMAIL_USER,
-      to: 'highskills123@gmail.com',
+      to: 'retrolootsinc@gmail.com',
       subject: `RetroLoots Contact: ${subject} - from ${name}`,
       html: `
         <h2>New Contact Form Submission</h2>

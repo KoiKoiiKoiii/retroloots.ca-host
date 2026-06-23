@@ -77,6 +77,7 @@ document.addEventListener('click', (e)=>{
     }, 900);
   }
   if(e.target.id==='cartButton'){ document.getElementById('cartPanel').classList.add('open'); document.getElementById('cartPanel').setAttribute('aria-hidden','false'); }
+  if(e.target.id==='cartBadge'){ document.getElementById('cartPanel').classList.add('open'); document.getElementById('cartPanel').setAttribute('aria-hidden','false'); }
   if(e.target.id==='closeCart'){ document.getElementById('cartPanel').classList.remove('open'); document.getElementById('cartPanel').setAttribute('aria-hidden','true'); }
   if(e.target.matches('.qty-inc')){ changeQty(e.target.dataset.id,1); }
   if(e.target.matches('.qty-dec')){ changeQty(e.target.dataset.id,-1); }
