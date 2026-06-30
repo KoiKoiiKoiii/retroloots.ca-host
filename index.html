@@ -10,6 +10,33 @@
         <link rel="stylesheet" href="css/styles.css">
         <script src="js/site.js" defer></script>
         <script src="js/cart.js" defer></script>
+        <style>
+            .hero-splash-bg {
+    position: relative;
+    overflow: hidden;
+}
+
+/* subtle background splash */
+.hero-splash-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background: url("RetroLootsLessSplash.webp") center / contain no-repeat;
+
+    opacity: 0.15;
+    transform: scale(1.3);
+    mix-blend-mode: screen;
+
+    z-index: 0;
+    pointer-events: none;
+}
+
+.hero-splash-bg > * {
+    position: relative;
+    z-index: 1;
+}
+        </style>
     </head>
 <body data-page="home">
 
@@ -44,7 +71,7 @@
 </header>
 
     <main>
-        <section class="hero-copy">
+        <section class="hero-copy hero-splash-bg">
             <div>
                 <span class="eyebrow" data-i18n-key="heroEyebrow">Québec collector HQ</span>
                 <h1 data-i18n-key="heroHeading">Rare finds for retro collectors, shipped from Quebec.</h1>

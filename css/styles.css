@@ -665,7 +665,6 @@ h2 .copy-icon {
     border-radius: 999px;
     text-decoration: none;
     font-weight: 700;
-    border: 1px solid transparent;
     color: white;
     font-family: inherit;
     transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
